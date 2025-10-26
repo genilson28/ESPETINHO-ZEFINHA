@@ -5,7 +5,7 @@
       <div class="max-w-4xl mx-auto">
         <div class="flex items-center justify-between mb-2">
           <div class="table-badge">
-            🪑 Mesa {{ tableNumber }}
+            🪑 Mesa {{ tableInfo?.numero || tableId }}
           </div>
           <button @click="toggleDebug" class="debug-btn" title="Debug">
             🐛
@@ -21,6 +21,8 @@
       <div v-if="showDebug" class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 mb-6">
         <h3 class="font-bold text-yellow-800 mb-2">🐛 DEBUG INFO:</h3>
         <div class="text-sm space-y-1 text-yellow-800">
+          <p><strong>Mesa ID:</strong> {{ tableId }}</p>
+          <p><strong>Mesa Info:</strong> {{ tableInfo }}</p>
           <p><strong>Total produtos carregados:</strong> {{ products.length }}</p>
           <p><strong>Espetinhos:</strong> {{ espetinhos.length }}</p>
           <p><strong>Bebidas:</strong> {{ bebidas.length }}</p>
@@ -45,7 +47,7 @@
         <div class="text-red-600 text-5xl mb-3">⚠️</div>
         <h3 class="text-xl font-bold text-red-800 mb-2">Erro ao carregar</h3>
         <p class="text-red-600 mb-4">{{ error }}</p>
-        <button @click="loadProducts" class="btn-primary">
+        <button @click="loadData" class="btn-primary">
           Tentar Novamente
         </button>
       </div>
@@ -215,52 +217,66 @@ const route = useRoute()
 
 // Estados
 const products = ref([])
+const tableInfo = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const showDebug = ref(false)
 
 // Parâmetros da rota
 const tableId = computed(() => route.params.tableId)
-const tableNumber = computed(() => route.query.tableNumber || tableId.value)
 
-// Carregar produtos
+// Carregar dados
 onMounted(async () => {
   console.log('🔍 ClientMenuView montado')
   console.log('📍 Mesa ID:', tableId.value)
-  console.log('📍 Mesa Número:', tableNumber.value)
-  await loadProducts()
+  await loadData()
 })
 
-const loadProducts = async () => {
+const loadData = async () => {
   loading.value = true
   error.value = null
   
   try {
-    console.log('🔄 Buscando produtos no Supabase...')
+    // Buscar informações da mesa
+    console.log('🔄 Buscando informações da mesa...')
+    const { data: table, error: tableError } = await supabase
+      .from(TABLES.MESAS)
+      .select('*')
+      .eq('id', tableId.value)
+      .single()
     
-    const { data, error: fetchError } = await supabase
+    if (tableError) {
+      console.error('❌ Erro ao buscar mesa:', tableError)
+      throw new Error('Mesa não encontrada')
+    }
+    
+    console.log('✅ Mesa encontrada:', table)
+    tableInfo.value = table
+    
+    // Buscar produtos
+    console.log('🔄 Buscando produtos no Supabase...')
+    const { data: productsData, error: productsError } = await supabase
       .from(TABLES.PRODUTOS)
       .select('*')
+      .eq('ativo', true)
       .order('categoria', { ascending: true })
       .order('nome', { ascending: true })
     
-    if (fetchError) {
-      console.error('❌ Erro do Supabase:', fetchError)
-      throw fetchError
+    if (productsError) {
+      console.error('❌ Erro ao buscar produtos:', productsError)
+      throw productsError
     }
     
-    console.log('✅ Produtos carregados:', data?.length || 0)
-    console.log('📦 Produtos:', data)
-    
-    products.value = data || []
+    console.log('✅ Produtos carregados:', productsData?.length || 0)
+    products.value = productsData || []
     
     if (products.value.length === 0) {
       console.warn('⚠️ Nenhum produto encontrado no banco!')
     }
     
   } catch (err) {
-    console.error('❌ Erro ao carregar produtos:', err)
-    error.value = 'Erro ao carregar o cardápio. Verifique sua conexão.'
+    console.error('❌ Erro ao carregar dados:', err)
+    error.value = err.message || 'Erro ao carregar o cardápio. Verifique sua conexão.'
   } finally {
     loading.value = false
   }
@@ -308,9 +324,10 @@ const addToCart = (product) => {
   }
   
   console.log('🛒 Adicionar ao carrinho:', product)
+  console.log('📍 Mesa:', tableInfo.value)
   
   // TODO: Implementar lógica do carrinho real
-  alert(`✅ ${product.nome} adicionado ao carrinho!\n\nPreço: R$ ${formatPrice(product.preco_venda)}\n\n🚧 Carrinho em desenvolvimento...`)
+  alert(`✅ ${product.nome} adicionado ao carrinho!\n\nPreço: R$ ${formatPrice(product.preco_venda)}\nMesa: ${tableInfo.value?.numero}\n\n🚧 Carrinho em desenvolvimento...`)
 }
 
 // Toggle debug
