@@ -21,11 +21,11 @@
     <!-- Loading State -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
-      <p>Carregando mesas...</p>
+      <p>Carregando mesas e gerando QR Codes...</p>
     </div>
 
     <!-- QR Codes Grid -->
-    <div v-else class="qr-grid">
+    <div v-else-if="tablesStore.tables.length > 0" class="qr-grid">
       <div 
         v-for="table in tablesStore.tables" 
         :key="table.id"
@@ -49,9 +49,10 @@
 
         <div class="qr-wrapper">
           <canvas 
-            :ref="el => setQRRef(table.id, el)"
-            :id="`qr-${table.id}`"
+            :id="`qr-canvas-${table.id}`"
             class="qr-canvas"
+            width="300"
+            height="300"
           ></canvas>
         </div>
 
@@ -65,7 +66,7 @@
     </div>
 
     <!-- Empty State -->
-    <div v-if="!loading && tablesStore.tables.length === 0" class="empty-state">
+    <div v-else class="empty-state">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="3" y="8" width="18" height="12" rx="2" />
         <path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
@@ -75,39 +76,11 @@
         Cadastrar Mesas
       </button>
     </div>
-
-    <!-- Print Styles -->
-    <div v-if="printMode" class="print-styles">
-      <style>
-        @media print {
-          .generator-header,
-          .btn-download,
-          .btn-print {
-            display: none !important;
-          }
-          
-          .qr-card {
-            page-break-inside: avoid;
-            page-break-after: always;
-            margin: 0;
-            box-shadow: none !important;
-          }
-          
-          .qr-card:last-child {
-            page-break-after: auto;
-          }
-          
-          .qr-grid {
-            display: block;
-          }
-        }
-      </style>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTablesStore } from '@/stores/tables'
 import QRCode from 'qrcode'
@@ -117,49 +90,47 @@ const tablesStore = useTablesStore()
 
 const loading = ref(true)
 const printMode = ref(false)
-const qrRefs = ref({})
-
-// ✅ CORREÇÃO: Função melhorada para gerenciar refs
-const setQRRef = (tableId, el) => {
-  if (el) {
-    qrRefs.value[tableId] = el
-  }
-}
+const qrCodesGenerated = ref(false)
 
 const getTableURL = (table) => {
   const baseURL = import.meta.env.VITE_APP_URL || window.location.origin
   return `${baseURL}/client-menu/${table.id}?tableNumber=${table.numero}`
 }
 
-// ✅ CORREÇÃO: Função melhorada com validação robusta
-const generateQRCode = async (table) => {
-  // Aguarda um pouco para garantir que o canvas está montado
-  await nextTick()
-  
-  const canvas = qrRefs.value[table.id]
-  
-  if (!canvas) {
-    console.warn(`⚠️ Canvas não encontrado para mesa ${table.numero} (ID: ${table.id}). Tentando novamente...`)
+const waitForCanvas = (canvasId, maxAttempts = 20) => {
+  return new Promise((resolve, reject) => {
+    let attempts = 0
     
-    // Tenta pegar diretamente pelo ID como fallback
-    const canvasFallback = document.getElementById(`qr-${table.id}`)
-    
-    if (!canvasFallback) {
-      console.error(`❌ Canvas definitivamente não encontrado para mesa ${table.numero}`)
-      return
+    const checkCanvas = () => {
+      const canvas = document.getElementById(canvasId)
+      
+      if (canvas) {
+        console.log(`✅ Canvas encontrado: ${canvasId}`)
+        resolve(canvas)
+      } else if (attempts >= maxAttempts) {
+        console.error(`❌ Canvas não encontrado após ${maxAttempts} tentativas: ${canvasId}`)
+        reject(new Error(`Canvas ${canvasId} não encontrado`))
+      } else {
+        attempts++
+        setTimeout(checkCanvas, 100)
+      }
     }
     
-    // Usa o canvas do fallback
-    qrRefs.value[table.id] = canvasFallback
-  }
+    checkCanvas()
+  })
+}
 
+const generateQRCode = async (table) => {
   try {
-    const url = getTableURL(table)
-    const targetCanvas = qrRefs.value[table.id]
+    const canvasId = `qr-canvas-${table.id}`
+    console.log(`🔄 Buscando canvas para mesa ${table.numero} (ID: ${canvasId})`)
     
-    await QRCode.toCanvas(targetCanvas, url, {
-      width: 150,
-      margin: 1,
+    const canvas = await waitForCanvas(canvasId)
+    const url = getTableURL(table)
+    
+    await QRCode.toCanvas(canvas, url, {
+      width: 300,
+      margin: 2,
       color: {
         dark: '#1f2937',
         light: '#ffffff'
@@ -167,30 +138,49 @@ const generateQRCode = async (table) => {
       errorCorrectionLevel: 'H'
     })
     
-    console.log('✅ QR Code gerado para mesa', table.numero)
+    console.log(`✅ QR Code gerado com sucesso para mesa ${table.numero}`)
+    return true
   } catch (error) {
-    console.error('❌ Erro ao gerar QR Code:', error)
+    console.error(`❌ Erro ao gerar QR Code para mesa ${table.numero}:`, error)
+    return false
   }
 }
 
-// ✅ CORREÇÃO: Função melhorada com delay entre gerações
 const generateAllQRCodes = async () => {
-  // Aguarda a montagem completa dos elementos
-  await nextTick()
-  
-  // Pequeno delay adicional para garantir renderização
-  await new Promise(resolve => setTimeout(resolve, 100))
-  
-  // Gera QR codes com pequeno delay entre cada um
-  for (const table of tablesStore.tables) {
-    await generateQRCode(table)
-    // Pequeno delay para não sobrecarregar
-    await new Promise(resolve => setTimeout(resolve, 50))
+  if (qrCodesGenerated.value) {
+    console.log('⏭️ QR Codes já foram gerados')
+    return
   }
+  
+  console.log('🚀 Iniciando geração de QR Codes...')
+  console.log(`📊 Total de mesas: ${tablesStore.tables.length}`)
+  
+  // Aguarda o DOM estar completamente renderizado
+  await nextTick()
+  await new Promise(resolve => setTimeout(resolve, 300))
+  
+  let successCount = 0
+  let failCount = 0
+  
+  for (const table of tablesStore.tables) {
+    const success = await generateQRCode(table)
+    if (success) {
+      successCount++
+    } else {
+      failCount++
+    }
+    // Pequeno delay entre cada geração
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  
+  qrCodesGenerated.value = true
+  console.log(`✅ Geração concluída: ${successCount} sucesso, ${failCount} falhas`)
 }
 
 const downloadQR = async (table) => {
-  const canvas = qrRefs.value[table.id]
+  const canvasId = `qr-canvas-${table.id}`
+  const canvas = document.getElementById(canvasId)
+  
   if (!canvas) {
     console.error('Canvas não encontrado para download')
     alert('Erro: QR Code não encontrado. Tente recarregar a página.')
@@ -237,26 +227,42 @@ const goToTables = () => {
   router.push({ name: 'tables' })
 }
 
+// Watch para gerar QR codes quando as mesas mudarem
+watch(() => tablesStore.tables.length, async (newLength) => {
+  if (newLength > 0 && !loading.value && !qrCodesGenerated.value) {
+    console.log('📢 Mesas carregadas, gerando QR Codes...')
+    await generateAllQRCodes()
+  }
+})
+
 onMounted(async () => {
+  console.log('🎬 Componente montado')
   loading.value = true
   
   try {
-    // Carrega as mesas se necessário
+    // Carrega as mesas
+    console.log('📥 Carregando mesas...')
     if (tablesStore.tables.length === 0) {
       await tablesStore.fetchTables()
     }
     
-    // Aguarda um momento para garantir que o DOM está pronto
+    console.log(`📊 Mesas carregadas: ${tablesStore.tables.length}`)
+    
+    // Remove o loading para renderizar os canvas
+    loading.value = false
+    
+    // Aguarda o próximo tick para garantir que os canvas foram renderizados
     await nextTick()
     
-    // Gera todos os QR codes
+    // Delay adicional para garantir
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Gera os QR codes
     await generateAllQRCodes()
     
-    console.log('✅ QR Codes gerados:', tablesStore.tables.length)
   } catch (error) {
     console.error('❌ Erro ao carregar mesas:', error)
     alert('Erro ao carregar mesas. Tente novamente.')
-  } finally {
     loading.value = false
   }
 })
@@ -271,6 +277,7 @@ onMounted(async () => {
   min-height: 100vh;
   background: #f8fafc;
   width: 100%;
+  padding-top: 80px;
 }
 
 .generator-header {
@@ -349,7 +356,7 @@ onMounted(async () => {
 
 .qr-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
   padding: 2rem;
   max-width: 100%;
@@ -415,7 +422,7 @@ onMounted(async () => {
 
 .qr-wrapper {
   width: 100%;
-  max-width: 180px;
+  max-width: 220px;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
@@ -429,8 +436,8 @@ onMounted(async () => {
 .qr-canvas {
   max-width: 100%;
   max-height: 100%;
-  width: auto;
-  height: auto;
+  width: auto !important;
+  height: auto !important;
   display: block;
 }
 
@@ -491,8 +498,12 @@ onMounted(async () => {
 }
 
 @media (max-width: 768px) {
+  .generator-header {
+    left: 0;
+  }
+
   .qr-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 1.25rem;
     padding: 1.5rem;
   }
@@ -515,7 +526,7 @@ onMounted(async () => {
   }
   
   .qr-wrapper {
-    max-width: 160px;
+    max-width: 180px;
   }
 }
 
@@ -544,13 +555,14 @@ onMounted(async () => {
   }
   
   .qr-wrapper {
-    max-width: 180px;
+    max-width: 200px;
   }
 }
 
 @media print {
   .qr-generator-page {
     background: white;
+    padding-top: 0;
   }
   
   .generator-header,
@@ -583,5 +595,4 @@ onMounted(async () => {
     max-width: 300px;
   }
 }
-
 </style>
