@@ -893,40 +893,106 @@ export default {
       console.log('Ver produto:', product);
     };
 
-    const confirmOrder = () => {
-      if (cart.value.length === 0) return;
+    const confirmOrder = async () => {
+  if (cart.value.length === 0) return;
 
-      const orderData = {
-        mesa_id: tableId.value,
-        cliente: {
-          nome: user.value.name,
-          email: user.value.email,
-          uid: user.value.uid
-        },
-        itens: cart.value.map(item => ({
-          produto_id: item.id,
-          nome: item.nome,
-          quantidade: item.quantity,
-          preco_unitario: item.preco
-        })),
-        total: totalPrice.value,
-        data_pedido: new Date().toISOString()
-      };
+  try {
+    console.log('📦 Enviando pedido...');
+    
+    // 1. Buscar dados da mesa atual
+    const { data: mesaAtual, error: mesaError } = await supabase
+      .from('pwa_mesas')
+      .select('*')
+      .eq('id', tableId.value)
+      .single();
 
-      console.log('Pedido confirmado:', orderData);
+    if (mesaError) {
+      console.error('Erro ao buscar mesa:', mesaError);
+      throw mesaError;
+    }
 
-      cart.value = [];
-      currentTab.value = 'home';
-      showToastMessage('Pedido enviado com sucesso!');
+    // 2. Preparar itens do pedido no formato JSONB
+    const itens = cart.value.map(item => ({
+      produto_id: item.id,
+      nome: item.nome,
+      quantidade: item.quantity,
+      preco_unitario: item.preco,
+      subtotal: item.preco * item.quantity
+    }));
+
+    // 3. Criar o pedido
+    const pedidoData = {
+      mesa_id: parseInt(tableId.value),
+      cliente_nome: user.value.name,
+      cliente_email: user.value.email,
+      cliente_uid: user.value.uid,
+      status: 'active',
+      valor_total: totalPrice.value,
+      itens: itens
     };
 
-    const showToastMessage = (message) => {
-      toastMessage.value = message;
-      showToast.value = true;
-      setTimeout(() => {
-        showToast.value = false;
-      }, 3000);
-    };
+    const { data: pedidoCriado, error: pedidoError } = await supabase
+      .from('pwa_pedidos')
+      .insert([pedidoData])
+      .select()
+      .single();
+
+    if (pedidoError) {
+      console.error('Erro ao criar pedido:', pedidoError);
+      throw pedidoError;
+    }
+
+    console.log('✅ Pedido criado:', pedidoCriado.id);
+
+    // 4. Atualizar status da mesa para ocupada
+    const { error: updateMesaError } = await supabase
+      .from('pwa_mesas')
+      .update({
+        status: 'occupied',
+        cliente_nome: user.value.name,
+        cliente_email: user.value.email,
+        cliente_uid: user.value.uid,
+        pedido_atual_id: pedidoCriado.id,
+        ocupada_desde: new Date().toISOString()
+      })
+      .eq('id', tableId.value);
+
+    if (updateMesaError) {
+      console.error('Erro ao ocupar mesa:', updateMesaError);
+      throw updateMesaError;
+    }
+
+    console.log('✅ Mesa ocupada com sucesso');
+
+    // 5. Atualizar estoque dos produtos
+    for (const item of cart.value) {
+      const { error: estoqueError } = await supabase
+        .from('pwa_produtos')
+        .update({
+          estoque_atual: item.estoque_atual - item.quantity
+        })
+        .eq('id', item.id);
+
+      if (estoqueError) {
+        console.error('Erro ao atualizar estoque:', estoqueError);
+      }
+    }
+
+    console.log('✅ Estoque atualizado');
+
+    // 6. Limpar carrinho e voltar para home
+    cart.value = [];
+    currentTab.value = 'home';
+    showToastMessage('Pedido enviado com sucesso! 🎉');
+
+    // Recarregar produtos para atualizar estoque
+    await loadData();
+
+  } catch (error) {
+    console.error('❌ Erro ao confirmar pedido:', error);
+    showToastMessage('Erro ao enviar pedido. Tente novamente.');
+  }
+};
 
     // ========================================
     // 🔄 VERIFICAR SESSÃO AO CARREGAR
