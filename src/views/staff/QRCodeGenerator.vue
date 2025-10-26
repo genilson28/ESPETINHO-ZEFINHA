@@ -8,7 +8,7 @@
         </svg>
       </button>
       <h1>QR Codes das Mesas</h1>
-      <button @click="printAll" class="btn-print">
+      <button @click="printAll" class="btn-print" :disabled="!allQRsGenerated">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="6 9 6 2 18 2 18 9"/>
           <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
@@ -21,21 +21,22 @@
     <!-- Loading State -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
-      <p>Carregando mesas...</p>
+      <p>Carregando mesas e gerando QR Codes...</p>
+      <p class="loading-progress" v-if="generatingQRs">{{ qrProgress }}</p>
     </div>
 
-    <!-- QR Codes Grid -->
-    <div v-else class="qr-grid">
+    <!-- QR Codes Grid - SÓ RENDERIZA DEPOIS DE GERAR -->
+    <div v-else-if="allQRsGenerated && qrCodes.length > 0" class="qr-grid">
       <div 
-        v-for="table in tablesStore.tables" 
-        :key="table.id"
+        v-for="qrData in qrCodes" 
+        :key="qrData.table.id"
         class="qr-card"
         :class="{ 'print-only': printMode }"
       >
         <div class="card-header">
-          <h2>Mesa {{ table.numero }}</h2>
+          <h2>Mesa {{ qrData.table.numero }}</h2>
           <button 
-            @click="downloadQR(table)" 
+            @click="downloadQR(qrData)" 
             class="btn-download"
             title="Baixar QR Code"
           >
@@ -48,24 +49,24 @@
         </div>
 
         <div class="qr-wrapper">
-          <canvas 
-            :ref="el => setQRRef(table.id, el)"
-            :id="`qr-${table.id}`"
-            class="qr-canvas"
-          ></canvas>
+          <img 
+            :src="qrData.dataUrl" 
+            :alt="`QR Code Mesa ${qrData.table.numero}`"
+            class="qr-image"
+          />
         </div>
 
         <div class="card-footer">
           <p class="qr-instructions">
             Escaneie o QR Code para fazer seu pedido
           </p>
-          <p class="qr-url">{{ getTableURL(table) }}</p>
+          <p class="qr-url">{{ qrData.url }}</p>
         </div>
       </div>
     </div>
 
     <!-- Empty State -->
-    <div v-if="!loading && tablesStore.tables.length === 0" class="empty-state">
+    <div v-else-if="!loading && tablesStore.tables.length === 0" class="empty-state">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="3" y="8" width="18" height="12" rx="2" />
         <path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
@@ -75,12 +76,11 @@
         Cadastrar Mesas
       </button>
     </div>
-
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTablesStore } from '@/stores/tables'
 import QRCode from 'qrcode'
@@ -89,34 +89,24 @@ const router = useRouter()
 const tablesStore = useTablesStore()
 
 const loading = ref(true)
+const generatingQRs = ref(false)
+const allQRsGenerated = ref(false)
 const printMode = ref(false)
-const qrRefs = ref({})
-
-// Função para setar refs dinamicamente
-const setQRRef = (tableId, el) => {
-  if (el) {
-    qrRefs.value[tableId] = el
-  }
-}
+const qrCodes = ref([])
+const qrProgress = ref('')
 
 const getTableURL = (table) => {
-  // Usar URL base do ambiente ou window.location
   const baseURL = import.meta.env.VITE_APP_URL || window.location.origin
   return `${baseURL}/client-menu/${table.id}?tableNumber=${table.numero}`
 }
 
 const generateQRCode = async (table) => {
-  const canvas = qrRefs.value[table.id]
-  if (!canvas) {
-    console.error('Canvas não encontrado para mesa', table.id)
-    return
-  }
-
   try {
     const url = getTableURL(table)
     
-    await QRCode.toCanvas(canvas, url, {
-      width: 240,
+    // Gera o QR code como Data URL (não precisa de DOM/canvas)
+    const dataUrl = await QRCode.toDataURL(url, {
+      width: 300,
       margin: 2,
       color: {
         dark: '#1f2937',
@@ -125,38 +115,56 @@ const generateQRCode = async (table) => {
       errorCorrectionLevel: 'H'
     })
     
-    console.log('✅ QR Code gerado para mesa', table.numero)
+    console.log(`✅ QR Code gerado para mesa ${table.numero}`)
+    
+    return {
+      table,
+      url,
+      dataUrl
+    }
   } catch (error) {
-    console.error('❌ Erro ao gerar QR Code:', error)
+    console.error(`❌ Erro ao gerar QR Code para mesa ${table.numero}:`, error)
+    return null
   }
 }
 
 const generateAllQRCodes = async () => {
-  await nextTick() // Aguardar refs estarem disponíveis
+  console.log('🚀 Iniciando geração de QR Codes...')
+  console.log(`📊 Total de mesas: ${tablesStore.tables.length}`)
   
-  for (const table of tablesStore.tables) {
-    await generateQRCode(table)
+  generatingQRs.value = true
+  const qrCodesData = []
+  
+  for (let i = 0; i < tablesStore.tables.length; i++) {
+    const table = tablesStore.tables[i]
+    qrProgress.value = `Gerando QR Code ${i + 1} de ${tablesStore.tables.length}...`
+    
+    const qrData = await generateQRCode(table)
+    if (qrData) {
+      qrCodesData.push(qrData)
+    }
+    
+    // Pequeno delay para não travar a interface
+    await new Promise(resolve => setTimeout(resolve, 50))
   }
+  
+  qrCodes.value = qrCodesData
+  generatingQRs.value = false
+  allQRsGenerated.value = true
+  
+  console.log(`✅ Todos os ${qrCodesData.length} QR Codes foram gerados com sucesso!`)
 }
 
-const downloadQR = async (table) => {
-  const canvas = qrRefs.value[table.id]
-  if (!canvas) return
-
+const downloadQR = async (qrData) => {
   try {
-    // Converter canvas para blob
-    canvas.toBlob((blob) => {
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `mesa-${table.numero}-qrcode.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-      
-      console.log('✅ QR Code baixado para mesa', table.numero)
-    })
+    const link = document.createElement('a')
+    link.href = qrData.dataUrl
+    link.download = `mesa-${qrData.table.numero}-qrcode.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    console.log('✅ QR Code baixado para mesa', qrData.table.numero)
   } catch (error) {
     console.error('❌ Erro ao baixar QR Code:', error)
     alert('Erro ao baixar QR Code. Tente novamente.')
@@ -164,13 +172,17 @@ const downloadQR = async (table) => {
 }
 
 const printAll = () => {
+  if (!allQRsGenerated.value) {
+    alert('Aguarde a geração de todos os QR Codes antes de imprimir.')
+    return
+  }
+  
   printMode.value = true
   
-  // Aguardar próximo tick para aplicar estilos de impressão
-  nextTick(() => {
+  setTimeout(() => {
     window.print()
     printMode.value = false
-  })
+  }, 100)
 }
 
 const goBack = () => {
@@ -182,22 +194,27 @@ const goToTables = () => {
 }
 
 onMounted(async () => {
+  console.log('🎬 Componente QR Generator montado')
   loading.value = true
   
   try {
-    // Carregar mesas se ainda não foram carregadas
+    console.log('📥 Carregando mesas...')
+    
     if (tablesStore.tables.length === 0) {
       await tablesStore.fetchTables()
     }
     
-    // Gerar QR Codes
+    console.log(`📊 Mesas carregadas: ${tablesStore.tables.length}`)
+    
+    // Gera TODOS os QR codes ANTES de remover o loading
     await generateAllQRCodes()
     
-    console.log('✅ QR Codes gerados:', tablesStore.tables.length)
+    // Só remove o loading depois que tudo está pronto
+    loading.value = false
+    
   } catch (error) {
     console.error('❌ Erro ao carregar mesas:', error)
     alert('Erro ao carregar mesas. Tente novamente.')
-  } finally {
     loading.value = false
   }
 })
@@ -252,8 +269,13 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
+.btn-print:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-back:hover,
-.btn-print:hover {
+.btn-print:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -289,7 +311,13 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
-/* ✅ GRID RESPONSIVO - SEM SCROLL HORIZONTAL */
+.loading-progress {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #C41E3A;
+  font-weight: 600;
+}
+
 .qr-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
@@ -351,7 +379,6 @@ onMounted(async () => {
   transform: scale(1.1);
 }
 
-/* ✅ QR WRAPPER RESPONSIVO */
 .qr-wrapper {
   width: 100%;
   max-width: 240px;
@@ -365,11 +392,12 @@ onMounted(async () => {
   margin-bottom: 1rem;
 }
 
-.qr-canvas {
+.qr-image {
   max-width: 100%;
   max-height: 100%;
-  height: auto;
   width: auto;
+  height: auto;
+  display: block;
 }
 
 .card-footer {
@@ -428,7 +456,6 @@ onMounted(async () => {
   transform: translateY(-2px);
 }
 
-/* ✅ RESPONSIVO MOBILE */
 @media (max-width: 768px) {
   .qr-grid {
     grid-template-columns: 1fr;
@@ -476,7 +503,6 @@ onMounted(async () => {
   }
 }
 
-/* ✅ IMPRESSÃO */
 @media print {
   .qr-generator-container {
     background: white;
