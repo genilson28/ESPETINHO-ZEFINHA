@@ -52,8 +52,8 @@
         <div v-show="currentTab === 'home'" class="tab-home-modern">
           <!-- Título Principal -->
           <div class="main-title-section">
-            <h1 class="main-title">Escolha</h1>
-            <h1 class="main-title">Sua Comida Favorita</h1>
+            <h1 class="main-title">Point Da Zefinha</h1>
+            <h1 class="main-title">Escolha Seu Cardapio</h1>
           </div>
 
           <!-- Busca com Filtro -->
@@ -1796,3 +1796,4 @@ body {
   }
 }
 </style>
+
