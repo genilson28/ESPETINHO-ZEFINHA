@@ -4,7 +4,7 @@
 // ========================================
 
 // ⚠️ IMPORTANTE: Mude a versão a cada atualização do app!
-const CACHE_NAME = 'zefinha-cache-v2' // ← MUDE AQUI (v2, v3, v4...)
+const CACHE_NAME = 'zefinha-cache-v3' // ← ATUALIZADO PARA V3!
 
 const urlsToCache = [
   '/',
