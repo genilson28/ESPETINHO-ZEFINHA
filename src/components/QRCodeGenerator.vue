@@ -119,6 +119,7 @@ const loading = ref(true)
 const printMode = ref(false)
 const qrRefs = ref({})
 
+// ✅ CORREÇÃO: Função melhorada para gerenciar refs
 const setQRRef = (tableId, el) => {
   if (el) {
     qrRefs.value[tableId] = el
@@ -130,17 +131,33 @@ const getTableURL = (table) => {
   return `${baseURL}/client-menu/${table.id}?tableNumber=${table.numero}`
 }
 
+// ✅ CORREÇÃO: Função melhorada com validação robusta
 const generateQRCode = async (table) => {
+  // Aguarda um pouco para garantir que o canvas está montado
+  await nextTick()
+  
   const canvas = qrRefs.value[table.id]
+  
   if (!canvas) {
-    console.error('Canvas não encontrado para mesa', table.id)
-    return
+    console.warn(`⚠️ Canvas não encontrado para mesa ${table.numero} (ID: ${table.id}). Tentando novamente...`)
+    
+    // Tenta pegar diretamente pelo ID como fallback
+    const canvasFallback = document.getElementById(`qr-${table.id}`)
+    
+    if (!canvasFallback) {
+      console.error(`❌ Canvas definitivamente não encontrado para mesa ${table.numero}`)
+      return
+    }
+    
+    // Usa o canvas do fallback
+    qrRefs.value[table.id] = canvasFallback
   }
 
   try {
     const url = getTableURL(table)
+    const targetCanvas = qrRefs.value[table.id]
     
-    await QRCode.toCanvas(canvas, url, {
+    await QRCode.toCanvas(targetCanvas, url, {
       width: 150,
       margin: 1,
       color: {
@@ -156,20 +173,36 @@ const generateQRCode = async (table) => {
   }
 }
 
+// ✅ CORREÇÃO: Função melhorada com delay entre gerações
 const generateAllQRCodes = async () => {
+  // Aguarda a montagem completa dos elementos
   await nextTick()
   
+  // Pequeno delay adicional para garantir renderização
+  await new Promise(resolve => setTimeout(resolve, 100))
+  
+  // Gera QR codes com pequeno delay entre cada um
   for (const table of tablesStore.tables) {
     await generateQRCode(table)
+    // Pequeno delay para não sobrecarregar
+    await new Promise(resolve => setTimeout(resolve, 50))
   }
 }
 
 const downloadQR = async (table) => {
   const canvas = qrRefs.value[table.id]
-  if (!canvas) return
+  if (!canvas) {
+    console.error('Canvas não encontrado para download')
+    alert('Erro: QR Code não encontrado. Tente recarregar a página.')
+    return
+  }
 
   try {
     canvas.toBlob((blob) => {
+      if (!blob) {
+        throw new Error('Erro ao gerar blob do canvas')
+      }
+      
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -208,10 +241,15 @@ onMounted(async () => {
   loading.value = true
   
   try {
+    // Carrega as mesas se necessário
     if (tablesStore.tables.length === 0) {
       await tablesStore.fetchTables()
     }
     
+    // Aguarda um momento para garantir que o DOM está pronto
+    await nextTick()
+    
+    // Gera todos os QR codes
     await generateAllQRCodes()
     
     console.log('✅ QR Codes gerados:', tablesStore.tables.length)
@@ -545,4 +583,5 @@ onMounted(async () => {
     max-width: 300px;
   }
 }
+
 </style>
