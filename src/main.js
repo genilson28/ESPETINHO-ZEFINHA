@@ -29,15 +29,13 @@ if ('serviceWorker' in navigator) {
         console.log('✅ Service Worker registrado:', registration)
 
         // ========================================
-        // Verifica atualizações a cada 30 segundos
+        // ❌ REMOVIDO: Verificação a cada 30 segundos
+        // Estava causando recarregamentos desnecessários
         // ========================================
-        setInterval(() => {
-          console.log('🔍 Verificando atualizações...')
-          registration.update()
-        }, 30000) // 30 segundos
 
         // ========================================
-        // Verifica quando a aba volta ao foco
+        // ✅ Verifica SOMENTE quando a aba volta ao foco
+        // (Cliente sai do app e volta)
         // ========================================
         document.addEventListener('visibilitychange', () => {
           if (!document.hidden) {
@@ -94,7 +92,7 @@ if ('serviceWorker' in navigator) {
           }
         })
 
-        // Verifica atualizações imediatamente ao carregar
+        // ✅ Verifica atualizações SOMENTE ao carregar (1 vez)
         registration.update()
       })
       .catch(error => {
