@@ -96,13 +96,23 @@ const qrCodes = ref([])
 const qrProgress = ref('')
 
 const getTableURL = (table) => {
-  const baseURL = import.meta.env.VITE_APP_URL || window.location.origin
-  return `${baseURL}/client-menu/${table.id}?tableNumber=${table.numero}`
+  let baseURL = import.meta.env.VITE_APP_URL || window.location.origin
+  
+  // Remove barra final se existir
+  if (baseURL.endsWith('/')) {
+    baseURL = baseURL.slice(0, -1)
+  }
+  
+  // Usa o ID da mesa como parâmetro da rota
+  return `${baseURL}/client-menu/${table.id}`
 }
 
 const generateQRCode = async (table) => {
   try {
     const url = getTableURL(table)
+    
+    // DEBUG: Mostra a URL gerada
+    console.log(`🔗 URL gerada para mesa ${table.numero}:`, url)
     
     // Gera o QR code como Data URL (não precisa de DOM/canvas)
     const dataUrl = await QRCode.toDataURL(url, {
