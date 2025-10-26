@@ -320,22 +320,40 @@ onMounted(async () => {
 
 .qr-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-  gap: 1.5rem;
-  padding: 1.5rem;
-  max-width: 1400px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 100%;
   margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .qr-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    padding: 1.5rem;
+    max-width: 1400px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .qr-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .qr-card {
   background: white;
-  border-radius: 16px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   align-items: center;
   transition: all 0.3s ease;
+  width: 100%;
+  max-width: 100%;
 }
 
 .qr-card:hover {
@@ -356,7 +374,8 @@ onMounted(async () => {
 .card-header h2 {
   margin: 0;
   color: #1f2937;
-  font-size: 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
 }
 
 .btn-download {
@@ -381,15 +400,15 @@ onMounted(async () => {
 
 .qr-wrapper {
   width: 100%;
-  max-width: 240px;
+  max-width: 180px;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #f8fafc;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0.5rem auto;
 }
 
 .qr-image {
@@ -406,18 +425,18 @@ onMounted(async () => {
 }
 
 .qr-instructions {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.25rem 0;
   color: #6b7280;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
 }
 
 .qr-url {
   margin: 0;
   color: #9ca3af;
-  font-size: 0.7rem;
+  font-size: 0.625rem;
   word-break: break-all;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .empty-state {
@@ -458,9 +477,9 @@ onMounted(async () => {
 
 @media (max-width: 768px) {
   .qr-grid {
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
-    padding: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+    padding: 0.75rem;
   }
   
   .generator-header {
@@ -481,25 +500,64 @@ onMounted(async () => {
   }
   
   .qr-card {
-    padding: 1.25rem;
+    padding: 0.875rem;
   }
   
   .card-header h2 {
-    font-size: 1.25rem;
+    font-size: 1rem;
+  }
+  
+  .qr-wrapper {
+    max-width: 150px;
   }
 }
 
 @media (max-width: 480px) {
+  .qr-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
   .generator-header h1 {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
   
   .qr-card {
-    padding: 1rem;
+    padding: 0.75rem;
+  }
+  
+  .card-header {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  .card-header h2 {
+    font-size: 0.875rem;
+  }
+  
+  .btn-download {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .btn-download svg {
+    width: 16px;
+    height: 16px;
   }
   
   .qr-wrapper {
-    max-width: 200px;
+    max-width: 120px;
+    padding: 0.5rem;
+    margin: 0.25rem auto;
+  }
+  
+  .qr-instructions {
+    font-size: 0.7rem;
+  }
+  
+  .qr-url {
+    font-size: 0.55rem;
   }
 }
 
