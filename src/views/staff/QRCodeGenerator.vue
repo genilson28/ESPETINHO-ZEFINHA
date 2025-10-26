@@ -61,6 +61,10 @@
             Escaneie o QR Code para fazer seu pedido
           </p>
           <p class="qr-url">{{ qrData.url }}</p>
+          <!-- DEBUG: Testar URL -->
+          <a :href="qrData.url" target="_blank" class="debug-link">
+            🔗 Testar URL
+          </a>
         </div>
       </div>
     </div>
@@ -110,9 +114,6 @@ const getTableURL = (table) => {
 const generateQRCode = async (table) => {
   try {
     const url = getTableURL(table)
-    
-    // DEBUG: Mostra a URL gerada
-    console.log(`🔗 URL gerada para mesa ${table.numero}:`, url)
     
     // Gera o QR code como Data URL (não precisa de DOM/canvas)
     const dataUrl = await QRCode.toDataURL(url, {
