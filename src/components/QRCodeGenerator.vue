@@ -21,7 +21,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
-      <p>Carregando mesas e gerando QR Codes...</p>
+      <p>Carregando mesas...</p>
     </div>
 
     <!-- QR Codes Grid -->
@@ -48,12 +48,10 @@
         </div>
 
         <div class="qr-wrapper">
-          <canvas 
-            :id="`qr-canvas-${table.id}`"
-            class="qr-canvas"
-            width="300"
-            height="300"
-          ></canvas>
+          <div 
+            :id="`qr-container-${table.id}`" 
+            class="qr-container"
+          ></div>
         </div>
 
         <div class="card-footer">
@@ -80,7 +78,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTablesStore } from '@/stores/tables'
 import QRCode from 'qrcode'
@@ -90,45 +88,19 @@ const tablesStore = useTablesStore()
 
 const loading = ref(true)
 const printMode = ref(false)
-const qrCodesGenerated = ref(false)
+const qrDataUrls = ref({})
 
 const getTableURL = (table) => {
   const baseURL = import.meta.env.VITE_APP_URL || window.location.origin
   return `${baseURL}/client-menu/${table.id}?tableNumber=${table.numero}`
 }
 
-const waitForCanvas = (canvasId, maxAttempts = 20) => {
-  return new Promise((resolve, reject) => {
-    let attempts = 0
-    
-    const checkCanvas = () => {
-      const canvas = document.getElementById(canvasId)
-      
-      if (canvas) {
-        console.log(`✅ Canvas encontrado: ${canvasId}`)
-        resolve(canvas)
-      } else if (attempts >= maxAttempts) {
-        console.error(`❌ Canvas não encontrado após ${maxAttempts} tentativas: ${canvasId}`)
-        reject(new Error(`Canvas ${canvasId} não encontrado`))
-      } else {
-        attempts++
-        setTimeout(checkCanvas, 100)
-      }
-    }
-    
-    checkCanvas()
-  })
-}
-
 const generateQRCode = async (table) => {
   try {
-    const canvasId = `qr-canvas-${table.id}`
-    console.log(`🔄 Buscando canvas para mesa ${table.numero} (ID: ${canvasId})`)
-    
-    const canvas = await waitForCanvas(canvasId)
     const url = getTableURL(table)
     
-    await QRCode.toCanvas(canvas, url, {
+    // Gera o QR code como Data URL
+    const dataUrl = await QRCode.toDataURL(url, {
       width: 300,
       margin: 2,
       color: {
@@ -138,72 +110,57 @@ const generateQRCode = async (table) => {
       errorCorrectionLevel: 'H'
     })
     
-    console.log(`✅ QR Code gerado com sucesso para mesa ${table.numero}`)
-    return true
+    qrDataUrls.value[table.id] = dataUrl
+    
+    // Aguarda o próximo tick e então renderiza
+    await nextTick()
+    
+    const container = document.getElementById(`qr-container-${table.id}`)
+    if (container) {
+      const img = document.createElement('img')
+      img.src = dataUrl
+      img.className = 'qr-image'
+      img.alt = `QR Code Mesa ${table.numero}`
+      container.innerHTML = ''
+      container.appendChild(img)
+      
+      console.log(`✅ QR Code gerado para mesa ${table.numero}`)
+    } else {
+      console.error(`❌ Container não encontrado para mesa ${table.numero}`)
+    }
   } catch (error) {
     console.error(`❌ Erro ao gerar QR Code para mesa ${table.numero}:`, error)
-    return false
   }
 }
 
 const generateAllQRCodes = async () => {
-  if (qrCodesGenerated.value) {
-    console.log('⏭️ QR Codes já foram gerados')
-    return
-  }
-  
   console.log('🚀 Iniciando geração de QR Codes...')
   console.log(`📊 Total de mesas: ${tablesStore.tables.length}`)
   
-  // Aguarda o DOM estar completamente renderizado
-  await nextTick()
-  await new Promise(resolve => setTimeout(resolve, 300))
-  
-  let successCount = 0
-  let failCount = 0
-  
   for (const table of tablesStore.tables) {
-    const success = await generateQRCode(table)
-    if (success) {
-      successCount++
-    } else {
-      failCount++
-    }
-    // Pequeno delay entre cada geração
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await generateQRCode(table)
   }
   
-  qrCodesGenerated.value = true
-  console.log(`✅ Geração concluída: ${successCount} sucesso, ${failCount} falhas`)
+  console.log('✅ Todos os QR Codes foram gerados')
 }
 
 const downloadQR = async (table) => {
-  const canvasId = `qr-canvas-${table.id}`
-  const canvas = document.getElementById(canvasId)
+  const dataUrl = qrDataUrls.value[table.id]
   
-  if (!canvas) {
-    console.error('Canvas não encontrado para download')
-    alert('Erro: QR Code não encontrado. Tente recarregar a página.')
+  if (!dataUrl) {
+    alert('QR Code não encontrado. Aguarde a geração.')
     return
   }
 
   try {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        throw new Error('Erro ao gerar blob do canvas')
-      }
-      
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `mesa-${table.numero}-qrcode.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-      
-      console.log('✅ QR Code baixado para mesa', table.numero)
-    })
+    const link = document.createElement('a')
+    link.href = dataUrl
+    link.download = `mesa-${table.numero}-qrcode.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    console.log('✅ QR Code baixado para mesa', table.numero)
   } catch (error) {
     console.error('❌ Erro ao baixar QR Code:', error)
     alert('Erro ao baixar QR Code. Tente novamente.')
@@ -227,37 +184,27 @@ const goToTables = () => {
   router.push({ name: 'tables' })
 }
 
-// Watch para gerar QR codes quando as mesas mudarem
-watch(() => tablesStore.tables.length, async (newLength) => {
-  if (newLength > 0 && !loading.value && !qrCodesGenerated.value) {
-    console.log('📢 Mesas carregadas, gerando QR Codes...')
-    await generateAllQRCodes()
-  }
-})
-
 onMounted(async () => {
-  console.log('🎬 Componente montado')
+  console.log('🎬 Componente QR Generator montado')
   loading.value = true
   
   try {
-    // Carrega as mesas
     console.log('📥 Carregando mesas...')
+    
     if (tablesStore.tables.length === 0) {
       await tablesStore.fetchTables()
     }
     
     console.log(`📊 Mesas carregadas: ${tablesStore.tables.length}`)
     
-    // Remove o loading para renderizar os canvas
+    // Remove o loading para renderizar os containers
     loading.value = false
     
-    // Aguarda o próximo tick para garantir que os canvas foram renderizados
+    // Aguarda a renderização dos containers
     await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
     
-    // Delay adicional para garantir
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Gera os QR codes
+    // Gera todos os QR codes
     await generateAllQRCodes()
     
   } catch (error) {
@@ -433,11 +380,19 @@ onMounted(async () => {
   margin: 0 auto 1.25rem;
 }
 
-.qr-canvas {
+.qr-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-image {
   max-width: 100%;
   max-height: 100%;
-  width: auto !important;
-  height: auto !important;
+  width: auto;
+  height: auto;
   display: block;
 }
 
