@@ -1,10 +1,9 @@
 // ========================================
-// SERVICE WORKER ATUALIZADO
-// Com sistema de atualização automática
+// SERVICE WORKER SIMPLES
+// SEM atualização automática forçada
 // ========================================
 
-// ⚠️ IMPORTANTE: Mude a versão a cada atualização do app!
-const CACHE_NAME = 'zefinha-cache-v3' // ← ATUALIZADO PARA V3!
+const CACHE_NAME = 'zefinha-cache-v4'
 
 const urlsToCache = [
   '/',
@@ -16,111 +15,74 @@ const urlsToCache = [
 ]
 
 // ========================================
-// INSTALAÇÃO
+// INSTALAÇÃO - SIMPLES
 // ========================================
 self.addEventListener('install', event => {
-  console.log('📦 Service Worker instalando...', CACHE_NAME)
+  console.log('📦 Instalando Service Worker...', CACHE_NAME)
   
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('💾 Arquivos adicionados ao cache')
-        return cache.addAll(urlsToCache)
-      })
-      .then(() => {
-        // ✨ NOVO: Força ativação imediata
-        return self.skipWaiting()
-      })
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(urlsToCache)
+    })
   )
+  
+  // ❌ REMOVIDO: self.skipWaiting() 
+  // Não força ativação imediata
 })
 
 // ========================================
-// ATIVAÇÃO
+// ATIVAÇÃO - SIMPLES
 // ========================================
 self.addEventListener('activate', event => {
-  console.log('✅ Service Worker ativando...', CACHE_NAME)
+  console.log('✅ Ativando Service Worker...', CACHE_NAME)
   
   event.waitUntil(
-    caches.keys()
-      .then(keys => {
-        // Deleta todos os caches antigos
-        return Promise.all(
-          keys.map(key => {
-            if (key !== CACHE_NAME) {
-              console.log('🗑️ Deletando cache antigo:', key)
-              return caches.delete(key)
-            }
-          })
-        )
-      })
-      .then(() => {
-        // ✨ NOVO: Assume controle imediatamente
-        return self.clients.claim()
-      })
-      .then(() => {
-        // ✨ NOVO: Notifica todos os clientes sobre atualização
-        return self.clients.matchAll().then(clients => {
-          clients.forEach(client => {
-            client.postMessage({
-              type: 'UPDATE_AVAILABLE',
-              version: CACHE_NAME
-            })
-          })
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.map(key => {
+          if (key !== CACHE_NAME) {
+            console.log('🗑️ Deletando cache antigo:', key)
+            return caches.delete(key)
+          }
         })
-      })
+      )
+    )
   )
+  
+  // ❌ REMOVIDO: self.clients.claim()
+  // ❌ REMOVIDO: Notificações de atualização
+  // Não assume controle forçado
 })
 
 // ========================================
-// FETCH - ESTRATÉGIA: NETWORK FIRST
+// FETCH - CACHE FIRST (mais rápido)
 // ========================================
 self.addEventListener('fetch', event => {
   event.respondWith(
-    // ✨ MUDANÇA: Tenta buscar da rede PRIMEIRO
-    fetch(event.request)
-      .then(response => {
-        // Se conseguiu da rede, atualiza o cache
+    // Tenta buscar do CACHE primeiro (mais rápido, sem recarregar)
+    caches.match(event.request).then(response => {
+      // Se tem no cache, retorna
+      if (response) {
+        return response
+      }
+      
+      // Se não tem no cache, busca da rede
+      return fetch(event.request).then(response => {
+        // Se deu certo, salva no cache para próxima vez
         if (response && response.status === 200) {
           const responseToCache = response.clone()
-          
           caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, responseToCache)
           })
         }
-        
         return response
       })
-      .catch(() => {
-        // Se falhou, tenta buscar do cache
-        return caches.match(event.request)
-          .then(cachedResponse => {
-            if (cachedResponse) {
-              return cachedResponse
-            }
-            
-            // Se não tem no cache, retorna erro
-            return new Response('Offline', {
-              status: 503,
-              statusText: 'Sem conexão'
-            })
-          })
-      })
+    })
   )
 })
 
-// ========================================
-// MENSAGENS (para controle externo)
-// ========================================
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('⚡ Ativação imediata solicitada')
-    self.skipWaiting()
-  }
-  
-  if (event.data && event.data.type === 'CHECK_UPDATE') {
-    console.log('🔍 Verificação de atualização solicitada')
-    // O browser já faz isso automaticamente
-  }
-})
+// ❌ REMOVIDO: Event listener de mensagens
+// ❌ REMOVIDO: Lógica de SKIP_WAITING
+// ❌ REMOVIDO: Notificações
 
-console.log('🚀 Service Worker carregado:', CACHE_NAME)
+console.log('🚀 Service Worker carregado (modo simples):', CACHE_NAME)
