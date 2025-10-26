@@ -8,7 +8,7 @@
         </svg>
       </button>
       <h1>QR Codes das Mesas</h1>
-      <button @click="printAll" class="btn-print">
+      <button @click="printAll" class="btn-print" :disabled="!allQRsGenerated">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="6 9 6 2 18 2 18 9"/>
           <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
@@ -21,21 +21,22 @@
     <!-- Loading State -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
-      <p>Carregando mesas...</p>
+      <p>Carregando mesas e gerando QR Codes...</p>
+      <p class="loading-progress" v-if="generatingQRs">{{ qrProgress }}</p>
     </div>
 
-    <!-- QR Codes Grid -->
-    <div v-else-if="tablesStore.tables.length > 0" class="qr-grid">
+    <!-- QR Codes Grid - SÓ RENDERIZA DEPOIS DE GERAR -->
+    <div v-else-if="allQRsGenerated && qrCodes.length > 0" class="qr-grid">
       <div 
-        v-for="table in tablesStore.tables" 
-        :key="table.id"
+        v-for="qrData in qrCodes" 
+        :key="qrData.table.id"
         class="qr-card"
         :class="{ 'print-only': printMode }"
       >
         <div class="card-header">
-          <h2>Mesa {{ table.numero }}</h2>
+          <h2>Mesa {{ qrData.table.numero }}</h2>
           <button 
-            @click="downloadQR(table)" 
+            @click="downloadQR(qrData)" 
             class="btn-download"
             title="Baixar QR Code"
           >
@@ -48,23 +49,24 @@
         </div>
 
         <div class="qr-wrapper">
-          <div 
-            :id="`qr-container-${table.id}`" 
-            class="qr-container"
-          ></div>
+          <img 
+            :src="qrData.dataUrl" 
+            :alt="`QR Code Mesa ${qrData.table.numero}`"
+            class="qr-image"
+          />
         </div>
 
         <div class="card-footer">
           <p class="qr-instructions">
             Escaneie o QR Code para fazer seu pedido
           </p>
-          <p class="qr-url">{{ getTableURL(table) }}</p>
+          <p class="qr-url">{{ qrData.url }}</p>
         </div>
       </div>
     </div>
 
     <!-- Empty State -->
-    <div v-else class="empty-state">
+    <div v-else-if="!loading && tablesStore.tables.length === 0" class="empty-state">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="3" y="8" width="18" height="12" rx="2" />
         <path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
@@ -78,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTablesStore } from '@/stores/tables'
 import QRCode from 'qrcode'
@@ -87,8 +89,11 @@ const router = useRouter()
 const tablesStore = useTablesStore()
 
 const loading = ref(true)
+const generatingQRs = ref(false)
+const allQRsGenerated = ref(false)
 const printMode = ref(false)
-const qrDataUrls = ref({})
+const qrCodes = ref([])
+const qrProgress = ref('')
 
 const getTableURL = (table) => {
   const baseURL = import.meta.env.VITE_APP_URL || window.location.origin
@@ -99,7 +104,7 @@ const generateQRCode = async (table) => {
   try {
     const url = getTableURL(table)
     
-    // Gera o QR code como Data URL
+    // Gera o QR code como Data URL (não precisa de DOM)
     const dataUrl = await QRCode.toDataURL(url, {
       width: 300,
       margin: 2,
@@ -110,26 +115,16 @@ const generateQRCode = async (table) => {
       errorCorrectionLevel: 'H'
     })
     
-    qrDataUrls.value[table.id] = dataUrl
+    console.log(`✅ QR Code gerado para mesa ${table.numero}`)
     
-    // Aguarda o próximo tick e então renderiza
-    await nextTick()
-    
-    const container = document.getElementById(`qr-container-${table.id}`)
-    if (container) {
-      const img = document.createElement('img')
-      img.src = dataUrl
-      img.className = 'qr-image'
-      img.alt = `QR Code Mesa ${table.numero}`
-      container.innerHTML = ''
-      container.appendChild(img)
-      
-      console.log(`✅ QR Code gerado para mesa ${table.numero}`)
-    } else {
-      console.error(`❌ Container não encontrado para mesa ${table.numero}`)
+    return {
+      table,
+      url,
+      dataUrl
     }
   } catch (error) {
     console.error(`❌ Erro ao gerar QR Code para mesa ${table.numero}:`, error)
+    return null
   }
 }
 
@@ -137,30 +132,39 @@ const generateAllQRCodes = async () => {
   console.log('🚀 Iniciando geração de QR Codes...')
   console.log(`📊 Total de mesas: ${tablesStore.tables.length}`)
   
-  for (const table of tablesStore.tables) {
-    await generateQRCode(table)
+  generatingQRs.value = true
+  const qrCodesData = []
+  
+  for (let i = 0; i < tablesStore.tables.length; i++) {
+    const table = tablesStore.tables[i]
+    qrProgress.value = `Gerando QR Code ${i + 1} de ${tablesStore.tables.length}...`
+    
+    const qrData = await generateQRCode(table)
+    if (qrData) {
+      qrCodesData.push(qrData)
+    }
+    
+    // Pequeno delay para não travar a interface
+    await new Promise(resolve => setTimeout(resolve, 50))
   }
   
-  console.log('✅ Todos os QR Codes foram gerados')
+  qrCodes.value = qrCodesData
+  generatingQRs.value = false
+  allQRsGenerated.value = true
+  
+  console.log(`✅ Todos os ${qrCodesData.length} QR Codes foram gerados com sucesso!`)
 }
 
-const downloadQR = async (table) => {
-  const dataUrl = qrDataUrls.value[table.id]
-  
-  if (!dataUrl) {
-    alert('QR Code não encontrado. Aguarde a geração.')
-    return
-  }
-
+const downloadQR = async (qrData) => {
   try {
     const link = document.createElement('a')
-    link.href = dataUrl
-    link.download = `mesa-${table.numero}-qrcode.png`
+    link.href = qrData.dataUrl
+    link.download = `mesa-${qrData.table.numero}-qrcode.png`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     
-    console.log('✅ QR Code baixado para mesa', table.numero)
+    console.log('✅ QR Code baixado para mesa', qrData.table.numero)
   } catch (error) {
     console.error('❌ Erro ao baixar QR Code:', error)
     alert('Erro ao baixar QR Code. Tente novamente.')
@@ -168,12 +172,17 @@ const downloadQR = async (table) => {
 }
 
 const printAll = () => {
+  if (!allQRsGenerated.value) {
+    alert('Aguarde a geração de todos os QR Codes antes de imprimir.')
+    return
+  }
+  
   printMode.value = true
   
-  nextTick(() => {
+  setTimeout(() => {
     window.print()
     printMode.value = false
-  })
+  }, 100)
 }
 
 const goBack = () => {
@@ -197,15 +206,11 @@ onMounted(async () => {
     
     console.log(`📊 Mesas carregadas: ${tablesStore.tables.length}`)
     
-    // Remove o loading para renderizar os containers
-    loading.value = false
-    
-    // Aguarda a renderização dos containers
-    await nextTick()
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
-    // Gera todos os QR codes
+    // Gera TODOS os QR codes ANTES de remover o loading
     await generateAllQRCodes()
+    
+    // Só remove o loading depois que tudo está pronto
+    loading.value = false
     
   } catch (error) {
     console.error('❌ Erro ao carregar mesas:', error)
@@ -266,8 +271,13 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
+.btn-print:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-back:hover,
-.btn-print:hover {
+.btn-print:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -299,6 +309,13 @@ onMounted(async () => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.loading-progress {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #C41E3A;
+  font-weight: 600;
 }
 
 .qr-grid {
@@ -378,14 +395,6 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 1rem;
   margin: 0 auto 1.25rem;
-}
-
-.qr-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .qr-image {
