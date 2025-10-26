@@ -32,89 +32,106 @@
     </div>
 
     <!-- APP PRINCIPAL -->
-    <div v-else class="app-main">
-      <!-- HEADER FIXO -->
-      <header class="header">
-        <div class="header-inner">
-          <div class="table-info">
-            <span class="table-icon">🪑</span>
-            <span class="table-text">Mesa {{ tableId }}</span>
-          </div>
-          <div class="user-badge" @click="toggleUserMenu">
-            <img v-if="user.photoURL" :src="user.photoURL" :alt="user.name" class="user-avatar">
-            <div v-else class="user-avatar-default">{{ userInitial }}</div>
-          </div>
+    <div v-else class="app-main-modern">
+      <!-- HEADER MODERNO -->
+      <header class="modern-header">
+        <div class="header-user">
+          <img v-if="user.photoURL" :src="user.photoURL" :alt="user.name" class="user-photo">
+          <div v-else class="user-photo-default">{{ userInitial }}</div>
         </div>
-
-        <!-- Menu do Usuário -->
-        <div v-if="showUserMenu" class="user-dropdown" @click.stop>
-          <div class="dropdown-header">
-            <img v-if="user.photoURL" :src="user.photoURL" :alt="user.name" class="dropdown-avatar">
-            <div class="dropdown-info">
-              <div class="dropdown-name">{{ user.name }}</div>
-              <div class="dropdown-email">{{ user.email }}</div>
-            </div>
-          </div>
-          <button @click="logout" class="dropdown-logout">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-            Sair da conta
-          </button>
-        </div>
+        <button class="btn-notifications">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </button>
       </header>
 
-      <!-- CONTEÚDO -->
-      <div class="content">
-        <!-- TAB: HOME (CARDÁPIO) -->
-        <div v-show="currentTab === 'home'" class="tab-home">
-          <!-- Barra de Busca na Home -->
-          <div class="search-box">
-            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="m21 21-4.35-4.35"/>
-            </svg>
-            <input 
-              v-model="searchQuery" 
-              type="text" 
-              placeholder="O que você está procurando?" 
-              class="search-input"
-            >
+      <!-- CONTEÚDO PRINCIPAL -->
+      <div class="modern-content">
+        <div v-show="currentTab === 'home'" class="tab-home-modern">
+          <!-- Título Principal -->
+          <div class="main-title-section">
+            <h1 class="main-title">Escolha</h1>
+            <h1 class="main-title">Sua Comida Favorita</h1>
           </div>
 
-          <!-- ESPETINHOS -->
-          <section v-if="filteredEspetinhos.length > 0" class="section">
-            <h2 class="section-title">Espetinhos</h2>
-            <div class="products-grid">
+          <!-- Busca com Filtro -->
+          <div class="search-filter-container">
+            <div class="search-box-modern">
+              <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input 
+                v-model="searchQuery" 
+                type="text" 
+                placeholder="Buscar" 
+                class="search-input-modern"
+              >
+            </div>
+            <button class="btn-filter">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                <line x1="4" y1="21" x2="4" y2="14"/>
+                <line x1="4" y1="10" x2="4" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12" y2="3"/>
+                <line x1="20" y1="21" x2="20" y2="16"/>
+                <line x1="20" y1="12" x2="20" y2="3"/>
+                <line x1="1" y1="14" x2="7" y2="14"/>
+                <line x1="9" y1="8" x2="15" y2="8"/>
+                <line x1="17" y1="16" x2="23" y2="16"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Categorias Horizontais -->
+          <div class="categories-scroll">
+            <button 
+              v-for="cat in categories" 
+              :key="cat.id"
+              @click="selectedCategory = cat.id"
+              class="category-chip"
+              :class="{ 'active': selectedCategory === cat.id }">
+              {{ cat.name }}
+            </button>
+          </div>
+
+          <!-- Produtos Populares -->
+          <section class="section-modern">
+            <div class="section-header">
+              <h2 class="section-title-modern">Mais Pedidos</h2>
+              <button class="btn-see-all" @click="currentTab = 'browse'">Ver Todos</button>
+            </div>
+            
+            <div class="products-scroll">
               <div 
-                v-for="product in filteredEspetinhos" 
+                v-for="product in filteredPopularProducts" 
                 :key="product.id" 
-                class="product-card"
+                class="product-card-modern"
                 @click="viewProduct(product)">
-                <div class="product-image-wrapper">
+                <button class="btn-favorite" @click.stop="toggleFavorite(product.id)">
+                  <svg width="20" height="20" viewBox="0 0 24 24" :fill="isFavorite(product.id) ? '#EF4444' : 'none'" stroke="#EF4444" stroke-width="2">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </button>
+                <div class="product-image-modern">
                   <img 
                     v-if="product.imagem_url" 
                     :src="product.imagem_url" 
                     :alt="product.nome"
-                    class="product-img"
                   >
-                  <div v-else class="product-img-placeholder">
-                    <span class="placeholder-icon">🍢</span>
+                  <div v-else class="product-placeholder-modern">
+                    {{ product.categoria?.includes('espetinho') ? '🍢' : product.categoria?.includes('bebida') ? '🥤' : '🍟' }}
                   </div>
-                  <div v-if="product.estoque_atual <= 5 && product.estoque_atual > 0" class="badge-limited">
-                    Últimas unidades
-                  </div>
-                  <div v-if="product.estoque_atual <= 0" class="badge-sold">Esgotado</div>
                 </div>
-                <div class="product-details">
-                  <h3 class="product-title">{{ product.nome }}</h3>
-                  <p class="product-description">{{ product.descricao }}</p>
-                  <div class="product-bottom">
-                    <span class="product-price">R$ {{ formatPrice(product.preco) }}</span>
+                <div class="product-info-modern">
+                  <h3 class="product-name-modern">{{ product.nome }}</h3>
+                  <p class="product-subtitle-modern">{{ product.descricao }}</p>
+                  <div class="product-footer-modern">
+                    <span class="product-price-modern">Rs. {{ formatPrice(product.preco) }}</span>
                     <button 
-                      class="btn-add" 
+                      class="btn-add-modern" 
                       @click.stop="addToCart(product)"
                       :disabled="product.estoque_atual <= 0">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -128,73 +145,41 @@
             </div>
           </section>
 
-          <!-- BEBIDAS -->
-          <section v-if="filteredBebidas.length > 0" class="section">
-            <h2 class="section-title">Bebidas</h2>
-            <div class="products-grid">
-              <div 
-                v-for="product in filteredBebidas" 
-                :key="product.id" 
-                class="product-card"
-                @click="viewProduct(product)">
-                <div class="product-image-wrapper">
-                  <img 
-                    v-if="product.imagem_url" 
-                    :src="product.imagem_url" 
-                    :alt="product.nome"
-                    class="product-img"
-                  >
-                  <div v-else class="product-img-placeholder">
-                    <span class="placeholder-icon">🥤</span>
-                  </div>
-                </div>
-                <div class="product-details">
-                  <h3 class="product-title">{{ product.nome }}</h3>
-                  <p class="product-description">{{ product.descricao }}</p>
-                  <div class="product-bottom">
-                    <span class="product-price">R$ {{ formatPrice(product.preco) }}</span>
-                    <button 
-                      class="btn-add" 
-                      @click.stop="addToCart(product)"
-                      :disabled="product.estoque_atual <= 0">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
+          <!-- Produtos Mais Próximos / Em Destaque -->
+          <section class="section-modern">
+            <div class="section-header">
+              <h2 class="section-title-modern">Disponíveis Agora</h2>
+              <button class="btn-see-all" @click="currentTab = 'browse'">Ver Todos</button>
             </div>
-          </section>
-
-          <!-- ACOMPANHAMENTOS -->
-          <section v-if="filteredAcompanhamentos.length > 0" class="section">
-            <h2 class="section-title">Acompanhamentos</h2>
-            <div class="products-grid">
+            
+            <div class="products-scroll">
               <div 
-                v-for="product in filteredAcompanhamentos" 
+                v-for="product in filteredNearProducts" 
                 :key="product.id" 
-                class="product-card"
+                class="product-card-modern"
                 @click="viewProduct(product)">
-                <div class="product-image-wrapper">
+                <button class="btn-favorite" @click.stop="toggleFavorite(product.id)">
+                  <svg width="20" height="20" viewBox="0 0 24 24" :fill="isFavorite(product.id) ? '#EF4444' : 'none'" stroke="#EF4444" stroke-width="2">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </button>
+                <div class="product-image-modern">
                   <img 
                     v-if="product.imagem_url" 
                     :src="product.imagem_url" 
                     :alt="product.nome"
-                    class="product-img"
                   >
-                  <div v-else class="product-img-placeholder">
-                    <span class="placeholder-icon">🍟</span>
+                  <div v-else class="product-placeholder-modern">
+                    {{ product.categoria?.includes('espetinho') ? '🍢' : product.categoria?.includes('bebida') ? '🥤' : '🍟' }}
                   </div>
                 </div>
-                <div class="product-details">
-                  <h3 class="product-title">{{ product.nome }}</h3>
-                  <p class="product-description">{{ product.descricao }}</p>
-                  <div class="product-bottom">
-                    <span class="product-price">R$ {{ formatPrice(product.preco) }}</span>
+                <div class="product-info-modern">
+                  <h3 class="product-name-modern">{{ product.nome }}</h3>
+                  <p class="product-subtitle-modern">{{ product.descricao }}</p>
+                  <div class="product-footer-modern">
+                    <span class="product-price-modern">Rs. {{ formatPrice(product.preco) }}</span>
                     <button 
-                      class="btn-add" 
+                      class="btn-add-modern" 
                       @click.stop="addToCart(product)"
                       :disabled="product.estoque_atual <= 0">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -209,174 +194,196 @@
           </section>
         </div>
 
-        <!-- TAB: CARRINHO -->
-        <div v-show="currentTab === 'cart'" class="tab-cart">
-          <h1 class="page-title">Seu Pedido</h1>
+        <!-- TAB: FAVORITOS -->
+        <div v-show="currentTab === 'favorites'" class="tab-favorites">
+          <h1 class="page-title-modern">Meus Favoritos</h1>
           
-          <div v-if="cart.length === 0" class="empty-cart">
-            <div class="empty-icon">🛒</div>
-            <h3>Seu carrinho está vazio</h3>
-            <p>Adicione itens do cardápio para começar</p>
-            <button @click="currentTab = 'home'" class="btn-back-menu">Ver Cardápio</button>
+          <div v-if="favoriteProducts.length === 0" class="empty-state">
+            <div class="empty-icon-modern">❤️</div>
+            <h3>Nenhum favorito ainda</h3>
+            <p>Adicione produtos aos favoritos para vê-los aqui</p>
           </div>
 
-          <div v-else class="cart-content">
-            <div class="cart-items">
-              <div v-for="(item, index) in cart" :key="index" class="cart-item">
-                <div class="cart-item-image">
-                  <img v-if="item.imagem_url" :src="item.imagem_url" :alt="item.nome">
-                  <div v-else class="cart-placeholder">
-                    {{ item.categoria?.includes('espetinho') ? '🍢' : item.categoria?.includes('bebida') ? '🥤' : '🍟' }}
-                  </div>
+          <div v-else class="products-grid-modern">
+            <div 
+              v-for="product in favoriteProducts" 
+              :key="product.id" 
+              class="product-card-modern"
+              @click="viewProduct(product)">
+              <button class="btn-favorite" @click.stop="toggleFavorite(product.id)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#EF4444" stroke="#EF4444" stroke-width="2">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              </button>
+              <div class="product-image-modern">
+                <img 
+                  v-if="product.imagem_url" 
+                  :src="product.imagem_url" 
+                  :alt="product.nome"
+                >
+                <div v-else class="product-placeholder-modern">
+                  {{ product.categoria?.includes('espetinho') ? '🍢' : product.categoria?.includes('bebida') ? '🥤' : '🍟' }}
                 </div>
-                <div class="cart-item-info">
-                  <h4 class="cart-item-name">{{ item.nome }}</h4>
-                  <p class="cart-item-price">R$ {{ formatPrice(item.preco) }}</p>
-                </div>
-                <div class="cart-item-actions">
-                  <div class="quantity-control">
-                    <button @click="decreaseQuantity(index)" class="qty-btn">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
-                    </button>
-                    <span class="qty-number">{{ item.quantity }}</span>
-                    <button @click="increaseQuantity(index)" class="qty-btn">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <button @click="removeFromCart(index)" class="btn-remove">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </div>
+              <div class="product-info-modern">
+                <h3 class="product-name-modern">{{ product.nome }}</h3>
+                <p class="product-subtitle-modern">{{ product.descricao }}</p>
+                <div class="product-footer-modern">
+                  <span class="product-price-modern">Rs. {{ formatPrice(product.preco) }}</span>
+                  <button 
+                    class="btn-add-modern" 
+                    @click.stop="addToCart(product)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19"/>
+                      <line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
                   </button>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            <div class="cart-summary">
-              <div class="summary-row">
+        <!-- TAB: CARRINHO -->
+        <div v-show="currentTab === 'cart'" class="tab-cart-modern">
+          <h1 class="page-title-modern">Seu Pedido</h1>
+          
+          <div v-if="cart.length === 0" class="empty-state">
+            <div class="empty-icon-modern">🛒</div>
+            <h3>Seu carrinho está vazio</h3>
+            <p>Adicione itens do cardápio para começar</p>
+            <button @click="currentTab = 'home'" class="btn-back-modern">Ver Cardápio</button>
+          </div>
+
+          <div v-else class="cart-content-modern">
+            <div class="cart-items-modern">
+              <div v-for="(item, index) in cart" :key="index" class="cart-item-modern">
+                <div class="cart-item-image-modern">
+                  <img v-if="item.imagem_url" :src="item.imagem_url" :alt="item.nome">
+                  <div v-else class="cart-placeholder-modern">
+                    {{ item.categoria?.includes('espetinho') ? '🍢' : item.categoria?.includes('bebida') ? '🥤' : '🍟' }}
+                  </div>
+                </div>
+                <div class="cart-item-details">
+                  <h4 class="cart-item-name-modern">{{ item.nome }}</h4>
+                  <p class="cart-item-price-modern">R$ {{ formatPrice(item.preco) }}</p>
+                  <div class="quantity-control-modern">
+                    <button @click="decreaseQuantity(index)" class="qty-btn-modern">-</button>
+                    <span class="qty-number-modern">{{ item.quantity }}</span>
+                    <button @click="increaseQuantity(index)" class="qty-btn-modern">+</button>
+                  </div>
+                </div>
+                <button @click="removeFromCart(index)" class="btn-remove-modern">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="cart-summary-modern">
+              <div class="summary-row-modern">
                 <span>Subtotal</span>
                 <span>R$ {{ formatPrice(totalPrice) }}</span>
               </div>
-              <div class="summary-row summary-total">
+              <div class="summary-row-modern summary-total-modern">
                 <span>Total</span>
                 <span>R$ {{ formatPrice(totalPrice) }}</span>
               </div>
             </div>
 
-            <button @click="confirmOrder" class="btn-confirm">
+            <button @click="confirmOrder" class="btn-confirm-modern">
               Confirmar Pedido
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
             </button>
           </div>
         </div>
 
         <!-- TAB: BUSCAR -->
-        <div v-show="currentTab === 'browse'" class="tab-browse">
-          <h1 class="page-title">Buscar</h1>
+        <div v-show="currentTab === 'browse'" class="tab-browse-modern">
+          <h1 class="page-title-modern">Todos os Produtos</h1>
           
-          <div class="search-box-large">
-            <svg class="search-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="search-box-modern" style="margin-bottom: 1.5rem;">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
               <circle cx="11" cy="11" r="8"/>
               <path d="m21 21-4.35-4.35"/>
             </svg>
             <input 
               v-model="searchQuery" 
               type="text" 
-              placeholder="Buscar produtos, categorias..." 
-              class="search-input-large"
-              autofocus
+              placeholder="Buscar produtos..." 
+              class="search-input-modern"
             >
           </div>
 
-          <div v-if="searchQuery && allFilteredProducts.length > 0" class="search-results">
-            <p class="results-count">{{ allFilteredProducts.length }} resultados encontrados</p>
-            <div class="products-grid">
-              <div 
-                v-for="product in allFilteredProducts" 
-                :key="product.id" 
-                class="product-card"
-                @click="viewProduct(product)">
-                <div class="product-image-wrapper">
-                  <img 
-                    v-if="product.imagem_url" 
-                    :src="product.imagem_url" 
-                    :alt="product.nome"
-                    class="product-img"
-                  >
-                  <div v-else class="product-img-placeholder">
-                    <span class="placeholder-icon">
-                      {{ product.categoria?.includes('espetinho') ? '🍢' : product.categoria?.includes('bebida') ? '🥤' : '🍟' }}
-                    </span>
-                  </div>
+          <div v-if="allFilteredProducts.length > 0" class="products-grid-modern">
+            <div 
+              v-for="product in allFilteredProducts" 
+              :key="product.id" 
+              class="product-card-modern"
+              @click="viewProduct(product)">
+              <button class="btn-favorite" @click.stop="toggleFavorite(product.id)">
+                <svg width="20" height="20" viewBox="0 0 24 24" :fill="isFavorite(product.id) ? '#EF4444' : 'none'" stroke="#EF4444" stroke-width="2">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              </button>
+              <div class="product-image-modern">
+                <img 
+                  v-if="product.imagem_url" 
+                  :src="product.imagem_url" 
+                  :alt="product.nome"
+                >
+                <div v-else class="product-placeholder-modern">
+                  {{ product.categoria?.includes('espetinho') ? '🍢' : product.categoria?.includes('bebida') ? '🥤' : '🍟' }}
                 </div>
-                <div class="product-details">
-                  <h3 class="product-title">{{ product.nome }}</h3>
-                  <p class="product-description">{{ product.descricao }}</p>
-                  <div class="product-bottom">
-                    <span class="product-price">R$ {{ formatPrice(product.preco) }}</span>
-                    <button 
-                      class="btn-add" 
-                      @click.stop="addToCart(product)"
-                      :disabled="product.estoque_atual <= 0">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
-                    </button>
-                  </div>
+              </div>
+              <div class="product-info-modern">
+                <h3 class="product-name-modern">{{ product.nome }}</h3>
+                <p class="product-subtitle-modern">{{ product.descricao }}</p>
+                <div class="product-footer-modern">
+                  <span class="product-price-modern">Rs. {{ formatPrice(product.preco) }}</span>
+                  <button 
+                    class="btn-add-modern" 
+                    @click.stop="addToCart(product)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19"/>
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
-          <div v-else-if="searchQuery && allFilteredProducts.length === 0" class="no-results">
-            <div class="no-results-icon">🔍</div>
-            <h3>Nenhum resultado encontrado</h3>
-            <p>Tente buscar por outro produto</p>
-          </div>
-
-          <div v-else class="search-placeholder">
-            <div class="search-placeholder-icon">🔍</div>
-            <h3>Busque por produtos</h3>
-            <p>Digite o nome do produto que você procura</p>
+          <div v-else class="empty-state">
+            <div class="empty-icon-modern">🔍</div>
+            <h3>Nenhum produto encontrado</h3>
+            <p>Tente buscar por outro termo</p>
           </div>
         </div>
 
-        <!-- TAB: CONTA -->
-        <div v-show="currentTab === 'account'" class="tab-account">
-          <h1 class="page-title">Minha Conta</h1>
+        <!-- TAB: PERFIL -->
+        <div v-show="currentTab === 'profile'" class="tab-profile-modern">
+          <h1 class="page-title-modern">Minha Conta</h1>
           
-          <div class="account-card">
-            <div class="account-header">
-              <img v-if="user.photoURL" :src="user.photoURL" :alt="user.name" class="account-avatar">
-              <div v-else class="account-avatar-default">{{ userInitial }}</div>
-              <div class="account-info">
-                <h2 class="account-name">{{ user.name }}</h2>
-                <p class="account-email">{{ user.email }}</p>
-              </div>
-            </div>
-
-            <div class="account-section">
-              <h3 class="section-subtitle">Informações</h3>
-              <div class="info-item">
-                <span class="info-label">Mesa</span>
+          <div class="profile-card">
+            <img v-if="user.photoURL" :src="user.photoURL" :alt="user.name" class="profile-avatar">
+            <div v-else class="profile-avatar-default">{{ userInitial }}</div>
+            <h2 class="profile-name">{{ user.name }}</h2>
+            <p class="profile-email">{{ user.email }}</p>
+            
+            <div class="profile-info">
+              <div class="info-row">
+                <span>Mesa</span>
                 <span class="info-value">Mesa {{ tableId }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">Status</span>
+              <div class="info-row">
+                <span>Status</span>
                 <span class="info-value status-active">Ativo</span>
               </div>
             </div>
 
-            <button @click="logout" class="btn-logout-full">
+            <button @click="logout" class="btn-logout-modern">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                 <polyline points="16 17 21 12 16 7"/>
@@ -388,61 +395,59 @@
         </div>
       </div>
 
-      <!-- BOTTOM NAVIGATION -->
-      <nav class="bottom-nav">
+      <!-- BOTTOM NAVIGATION MODERNA -->
+      <nav class="bottom-nav-modern">
         <button 
-          class="nav-item" 
-          :class="{ active: currentTab === 'home' }"
+          class="nav-item-modern" 
+          :class="{ 'active': currentTab === 'home' }"
           @click="currentTab = 'home'">
-          <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="24" height="24" viewBox="0 0 24 24" :fill="currentTab === 'home' ? 'white' : 'none'" :stroke="currentTab === 'home' ? 'white' : '#999'" stroke-width="2">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
           </svg>
-          <span class="nav-label">Home</span>
+          <span>Home</span>
         </button>
 
         <button 
-          class="nav-item" 
-          :class="{ active: currentTab === 'cart' }"
+          class="nav-item-modern" 
+          :class="{ 'active': currentTab === 'favorites' }"
+          @click="currentTab = 'favorites'">
+          <svg width="24" height="24" viewBox="0 0 24 24" :fill="currentTab === 'favorites' ? 'white' : 'none'" :stroke="currentTab === 'favorites' ? 'white' : '#999'" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+          <span>Favoritos</span>
+        </button>
+
+        <button 
+          class="nav-item-modern" 
+          :class="{ 'active': currentTab === 'cart' }"
           @click="currentTab = 'cart'">
-          <div class="nav-icon-wrapper">
-            <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="nav-icon-wrapper-modern">
+            <svg width="24" height="24" viewBox="0 0 24 24" :fill="currentTab === 'cart' ? 'white' : 'none'" :stroke="currentTab === 'cart' ? 'white' : '#999'" stroke-width="2">
               <circle cx="9" cy="21" r="1"/>
               <circle cx="20" cy="21" r="1"/>
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
             </svg>
-            <span v-if="cartItemCount > 0" class="cart-badge">{{ cartItemCount }}</span>
+            <span v-if="cartItemCount > 0" class="cart-badge-modern">{{ cartItemCount }}</span>
           </div>
-          <span class="nav-label">Carrinho</span>
+          <span>Carrinho</span>
         </button>
 
         <button 
-          class="nav-item" 
-          :class="{ active: currentTab === 'browse' }"
-          @click="currentTab = 'browse'">
-          <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.35-4.35"/>
-          </svg>
-          <span class="nav-label">Buscar</span>
-        </button>
-
-        <button 
-          class="nav-item" 
-          :class="{ active: currentTab === 'account' }"
-          @click="currentTab = 'account'">
-          <svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          class="nav-item-modern" 
+          :class="{ 'active': currentTab === 'profile' }"
+          @click="currentTab = 'profile'">
+          <svg width="24" height="24" viewBox="0 0 24 24" :fill="currentTab === 'profile' ? 'white' : 'none'" :stroke="currentTab === 'profile' ? 'white' : '#999'" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
             <circle cx="12" cy="7" r="4"/>
           </svg>
-          <span class="nav-label">Conta</span>
+          <span>Perfil</span>
         </button>
       </nav>
     </div>
 
     <!-- Toast Notification -->
     <Transition name="toast">
-      <div v-if="showToast" class="toast">
+      <div v-if="showToast" class="toast-modern">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <polyline points="20 6 9 17 4 12"/>
         </svg>
@@ -472,16 +477,25 @@ export default {
       photoURL: '',
       uid: ''
     });
-    const showUserMenu = ref(false);
     
     // Estados
     const products = ref([]);
     const cart = ref([]);
+    const favorites = ref([]);
     const currentTab = ref('home');
+    const selectedCategory = ref('all');
     const searchQuery = ref('');
     const showToast = ref(false);
     const toastMessage = ref('');
     const isLoading = ref(true);
+
+    // Categorias
+    const categories = ref([
+      { id: 'all', name: 'Todos' },
+      { id: 'espetinho', name: 'Espetinhos' },
+      { id: 'bebida', name: 'Bebidas' },
+      { id: 'acompanhamento', name: 'Acompanhamentos' }
+    ]);
 
     // Dados mockados
     const loadMockData = () => {
@@ -490,7 +504,7 @@ export default {
         {
           id: 1,
           nome: 'Espetinho de Carne',
-          descricao: 'Carne bovina temperada e grelhada na hora',
+          descricao: 'Carne bovina temperada',
           preco: 8.00,
           categoria: 'espetinho',
           estoque_atual: 50,
@@ -502,7 +516,7 @@ export default {
         {
           id: 2,
           nome: 'Espetinho de Frango',
-          descricao: 'Frango suculento com temperos especiais',
+          descricao: 'Frango suculento',
           preco: 7.00,
           categoria: 'espetinho',
           estoque_atual: 45,
@@ -514,7 +528,7 @@ export default {
         {
           id: 3,
           nome: 'Espetinho de Linguiça',
-          descricao: 'Linguiça artesanal defumada',
+          descricao: 'Linguiça artesanal',
           preco: 9.00,
           categoria: 'espetinho',
           estoque_atual: 4,
@@ -526,7 +540,7 @@ export default {
         {
           id: 4,
           nome: 'Espetinho de Coração',
-          descricao: 'Coração de frango bem temperado',
+          descricao: 'Coração de frango',
           preco: 6.50,
           categoria: 'espetinho',
           estoque_atual: 30,
@@ -538,7 +552,7 @@ export default {
         {
           id: 5,
           nome: 'Coca-Cola Lata',
-          descricao: 'Refrigerante 350ml gelado',
+          descricao: 'Refrigerante 350ml',
           preco: 5.00,
           categoria: 'bebida',
           estoque_atual: 30,
@@ -550,7 +564,7 @@ export default {
         {
           id: 6,
           nome: 'Guaraná Antarctica',
-          descricao: 'Refrigerante 350ml gelado',
+          descricao: 'Refrigerante 350ml',
           preco: 5.00,
           categoria: 'bebida',
           estoque_atual: 25,
@@ -586,7 +600,7 @@ export default {
         {
           id: 9,
           nome: 'Batata Frita',
-          descricao: 'Porção de batata frita crocante',
+          descricao: 'Porção de batata frita',
           preco: 12.00,
           categoria: 'acompanhamento',
           estoque_atual: 20,
@@ -598,7 +612,7 @@ export default {
         {
           id: 10,
           nome: 'Mandioca Frita',
-          descricao: 'Porção de mandioca crocante',
+          descricao: 'Porção de mandioca',
           preco: 10.00,
           categoria: 'acompanhamento',
           estoque_atual: 15,
@@ -610,7 +624,7 @@ export default {
         {
           id: 11,
           nome: 'Farofa',
-          descricao: 'Farofa caseira temperada',
+          descricao: 'Farofa caseira',
           preco: 8.00,
           categoria: 'acompanhamento',
           estoque_atual: 18,
@@ -622,7 +636,7 @@ export default {
         {
           id: 12,
           nome: 'Vinagrete',
-          descricao: 'Molho vinagrete caseiro',
+          descricao: 'Molho vinagrete',
           preco: 5.00,
           categoria: 'acompanhamento',
           estoque_atual: 25,
@@ -671,42 +685,57 @@ export default {
     };
 
     // Computed
-    const filteredEspetinhos = computed(() => {
-      const result = products.value.filter(p => 
-        p.categoria?.toLowerCase().includes('espetinho') &&
-        (!searchQuery.value || 
-         p.nome.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-         p.descricao?.toLowerCase().includes(searchQuery.value.toLowerCase()))
+    const filteredProductsByCategory = computed(() => {
+      if (selectedCategory.value === 'all') {
+        return products.value;
+      }
+      return products.value.filter(p => 
+        p.categoria?.toLowerCase().includes(selectedCategory.value.toLowerCase())
       );
-      return result;
-    });
-    
-    const filteredBebidas = computed(() => {
-      const result = products.value.filter(p => 
-        p.categoria?.toLowerCase().includes('bebida') &&
-        (!searchQuery.value || 
-         p.nome.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-         p.descricao?.toLowerCase().includes(searchQuery.value.toLowerCase()))
-      );
-      return result;
-    });
-    
-    const filteredAcompanhamentos = computed(() => {
-      const result = products.value.filter(p => 
-        p.categoria?.toLowerCase().includes('acompanhamento') &&
-        (!searchQuery.value || 
-         p.nome.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-         p.descricao?.toLowerCase().includes(searchQuery.value.toLowerCase()))
-      );
-      return result;
     });
 
-    const allFilteredProducts = computed(() => 
-      products.value.filter(p => 
-        p.nome.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        p.descricao?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        p.categoria?.toLowerCase().includes(searchQuery.value.toLowerCase())
-      )
+    const filteredPopularProducts = computed(() => {
+      let filtered = filteredProductsByCategory.value;
+      
+      if (searchQuery.value) {
+        filtered = filtered.filter(p => 
+          p.nome.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+          p.descricao?.toLowerCase().includes(searchQuery.value.toLowerCase())
+        );
+      }
+      
+      return filtered.slice(0, 6);
+    });
+
+    const filteredNearProducts = computed(() => {
+      let filtered = filteredProductsByCategory.value;
+      
+      if (searchQuery.value) {
+        filtered = filtered.filter(p => 
+          p.nome.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+          p.descricao?.toLowerCase().includes(searchQuery.value.toLowerCase())
+        );
+      }
+      
+      return filtered.filter(p => p.estoque_atual > 0).slice(0, 6);
+    });
+
+    const allFilteredProducts = computed(() => {
+      let filtered = products.value;
+      
+      if (searchQuery.value) {
+        filtered = filtered.filter(p => 
+          p.nome.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+          p.descricao?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+          p.categoria?.toLowerCase().includes(searchQuery.value.toLowerCase())
+        );
+      }
+      
+      return filtered;
+    });
+
+    const favoriteProducts = computed(() => 
+      products.value.filter(p => favorites.value.includes(p.id))
     );
 
     const cartItemCount = computed(() => 
@@ -737,35 +766,32 @@ export default {
           uid: 'mock-uid-123'
         };
         isAuthenticated.value = true;
-        
-        sendUserDataToBackend(user.value);
         loadData();
-        
         showToastMessage('Login realizado com sucesso!');
       }, 1000);
-    };
-
-    const sendUserDataToBackend = async (userData) => {
-      console.log('Enviando dados do cliente:', {
-        mesa_id: tableId.value,
-        nome: userData.name,
-        email: userData.email,
-        foto: userData.photoURL,
-        uid: userData.uid,
-        data_acesso: new Date().toISOString()
-      });
     };
 
     const logout = () => {
       user.value = { name: '', email: '', photoURL: '', uid: '' };
       isAuthenticated.value = false;
       cart.value = [];
-      showUserMenu.value = false;
+      favorites.value = [];
       showToastMessage('Você saiu da conta');
     };
 
-    const toggleUserMenu = () => {
-      showUserMenu.value = !showUserMenu.value;
+    const toggleFavorite = (productId) => {
+      const index = favorites.value.indexOf(productId);
+      if (index > -1) {
+        favorites.value.splice(index, 1);
+        showToastMessage('Removido dos favoritos');
+      } else {
+        favorites.value.push(productId);
+        showToastMessage('Adicionado aos favoritos');
+      }
+    };
+
+    const isFavorite = (productId) => {
+      return favorites.value.includes(productId);
     };
 
     const addToCart = (product) => {
@@ -847,25 +873,27 @@ export default {
       tableId,
       isAuthenticated,
       user,
-      showUserMenu,
       products,
       cart,
+      favorites,
       currentTab,
+      selectedCategory,
       searchQuery,
       showToast,
       toastMessage,
-      isLoading,
-      filteredEspetinhos,
-      filteredBebidas,
-      filteredAcompanhamentos,
+      categories,
+      filteredPopularProducts,
+      filteredNearProducts,
       allFilteredProducts,
+      favoriteProducts,
       cartItemCount,
       totalPrice,
       userInitial,
       formatPrice,
       loginWithGoogle,
       logout,
-      toggleUserMenu,
+      toggleFavorite,
+      isFavorite,
       addToCart,
       increaseQuantity,
       decreaseQuantity,
@@ -886,58 +914,58 @@ export default {
 
 .app-wrapper {
   min-height: 100vh;
-  background: #ffffff;
+  background: #f8f9fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
+/* ===== LOGIN SCREEN ===== */
 .login-screen {
   min-height: 100vh;
+  background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 2rem;
 }
 
 .login-container {
-  max-width: 400px;
   width: 100%;
+  max-width: 400px;
 }
 
 .login-logo {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
 }
 
 .logo-circle {
   width: 80px;
   height: 80px;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
+  background: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 2.5rem;
   margin: 0 auto 1rem;
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 .logo-title {
-  color: white;
   font-size: 2rem;
   font-weight: 800;
+  color: white;
   margin-bottom: 0.5rem;
 }
 
 .logo-subtitle {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .login-card {
   background: white;
-  border-radius: 20px;
+  border-radius: 24px;
   padding: 2rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
@@ -952,7 +980,6 @@ export default {
 .login-text {
   color: #666;
   margin-bottom: 2rem;
-  line-height: 1.5;
 }
 
 .btn-google {
@@ -961,703 +988,658 @@ export default {
   border: 2px solid #e0e0e0;
   padding: 1rem;
   border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  transition: all 0.3s ease;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .btn-google:hover {
-  border-color: #4285F4;
-  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.2);
-  transform: translateY(-2px);
-}
-
-.btn-google:active {
-  transform: translateY(0);
+  border-color: #E74C3C;
+  background: #fff5f5;
 }
 
 .login-benefits {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid #f0f0f0;
 }
 
 .login-benefits p {
   color: #666;
-  font-size: 0.9rem;
   margin: 0.5rem 0;
+  font-size: 0.9rem;
 }
 
-.header {
+/* ===== APP PRINCIPAL MODERNO ===== */
+.app-main-modern {
+  min-height: 100vh;
+  background: #f8f9fa;
+  padding-bottom: 80px;
+}
+
+.modern-header {
   background: white;
-  border-bottom: 1px solid #e0e0e0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1rem;
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.table-info {
+.header-user {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: #f5f5f5;
-  padding: 0.5rem 1rem;
-  border-radius: 50px;
+  gap: 0.75rem;
 }
 
-.table-icon {
-  font-size: 1.2rem;
-}
-
-.table-text {
-  font-weight: 700;
-  color: #1a1a1a;
-  font-size: 0.95rem;
-}
-
-.user-badge {
-  cursor: pointer;
-  position: relative;
-}
-
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+.user-photo,
+.user-photo-default {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   object-fit: cover;
-  border: 2px solid #e0e0e0;
 }
 
-.user-avatar-default {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.user-photo-default {
+  background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 1.1rem;
-  border: 2px solid #e0e0e0;
+  font-size: 1.25rem;
 }
 
-.user-dropdown {
-  position: absolute;
-  top: 70px;
-  right: 1rem;
+.btn-notifications {
+  width: 48px;
+  height: 48px;
   background: white;
+  border: 2px solid #f0f0f0;
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  padding: 1rem;
-  min-width: 250px;
-  z-index: 200;
-}
-
-.dropdown-header {
-  display: flex;
-  gap: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e0e0e0;
-  margin-bottom: 1rem;
-}
-
-.dropdown-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.dropdown-info {
-  flex: 1;
-}
-
-.dropdown-name {
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 0.25rem;
-}
-
-.dropdown-email {
-  font-size: 0.85rem;
-  color: #666;
-}
-
-.dropdown-logout {
-  width: 100%;
-  background: #f5f5f5;
-  border: none;
-  padding: 0.75rem;
-  border-radius: 8px;
-  font-weight: 600;
-  color: #ef4444;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  cursor: pointer;
   transition: all 0.2s;
 }
 
-.dropdown-logout:hover {
-  background: #fee2e2;
+.btn-notifications:hover {
+  background: #f8f9fa;
+  border-color: #E74C3C;
 }
 
-.content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1rem 1rem 100px 1rem;
+/* ===== CONTEÚDO MODERNO ===== */
+.modern-content {
+  padding: 1.5rem;
 }
 
-.page-title {
-  font-size: 1.75rem;
+.main-title-section {
+  margin-bottom: 1.5rem;
+}
+
+.main-title {
+  font-size: 1.875rem;
   font-weight: 800;
   color: #1a1a1a;
+  line-height: 1.2;
+  margin: 0;
+}
+
+/* ===== BUSCA COM FILTRO ===== */
+.search-filter-container {
+  display: flex;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
-.search-box {
-  margin-bottom: 1.5rem;
+.search-box-modern {
+  flex: 1;
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .search-icon {
   position: absolute;
   left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #999;
+  pointer-events: none;
 }
 
-.search-input {
+.search-input-modern {
   width: 100%;
-  padding: 1rem 1rem 1rem 3rem;
-  border: 2px solid #e0e0e0;
+  padding: 0.875rem 1rem 0.875rem 3rem;
+  border: 2px solid #f0f0f0;
   border-radius: 12px;
   font-size: 1rem;
   transition: all 0.2s;
+  background: white;
 }
 
-.search-input:focus {
+.search-input-modern:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #E74C3C;
 }
 
-.search-box-large {
+.btn-filter {
+  width: 52px;
+  height: 52px;
+  background: #E74C3C;
+  border: none;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-filter:hover {
+  background: #C0392B;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* ===== CATEGORIAS HORIZONTAIS ===== */
+.categories-scroll {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.categories-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.category-chip {
+  padding: 0.75rem 1.5rem;
+  background: white;
+  border: 2px solid #f0f0f0;
+  border-radius: 24px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.category-chip:hover {
+  border-color: #E74C3C;
+  color: #E74C3C;
+}
+
+.category-chip.active {
+  background: #E74C3C;
+  border-color: #E74C3C;
+  color: white;
+}
+
+/* ===== SEÇÕES MODERNAS ===== */
+.section-modern {
   margin-bottom: 2rem;
-  position: relative;
 }
 
-.search-input-large {
-  width: 100%;
-  padding: 1.2rem 1.2rem 1.2rem 3.5rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 15px;
-  font-size: 1.1rem;
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.section-title-modern {
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.btn-see-all {
+  background: none;
+  border: none;
+  color: #E74C3C;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
   transition: all 0.2s;
 }
 
-.search-input-large:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+.btn-see-all:hover {
+  transform: translateX(4px);
 }
 
-.section {
-  margin-bottom: 2.5rem;
+/* ===== CARROSSEL DE PRODUTOS ===== */
+.products-scroll {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.section-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #1a1a1a;
-  margin-bottom: 1rem;
+.products-scroll::-webkit-scrollbar {
+  display: none;
 }
 
-.section-subtitle {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 1rem;
-}
-
-.products-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
-}
-
-.product-card {
+.product-card-modern {
   background: white;
   border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
+  padding: 1rem;
+  min-width: 170px;
+  max-width: 170px;
   cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
 }
 
-.product-card:hover {
+.product-card-modern:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-.product-image-wrapper {
-  position: relative;
-  width: 100%;
-  height: 240px; /* Altura fixa mais alta */
-  background: #f5f5f5;
-  overflow: hidden;
-  border-radius: 12px 12px 0 0;
-}
-
-.product-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-
-.product-img-placeholder {
-  width: 100%;
-  height: 100%;
+.btn-favorite {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  width: 36px;
+  height: 36px;
+  background: white;
+  border: none;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
 }
 
-.placeholder-icon {
-  font-size: 4rem;
+.btn-favorite:hover {
+  transform: scale(1.1);
 }
 
-.badge-limited {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  background: #f59e0b;
-  color: white;
-  padding: 0.375rem 0.75rem;
-  border-radius: 50px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
+.product-image-modern {
+  width: 100%;
+  height: 130px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.badge-sold {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  background: #ef4444;
-  color: white;
-  padding: 0.375rem 0.75rem;
-  border-radius: 50px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
+.product-image-modern img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.product-details {
-  padding: 1rem;
+.product-placeholder-modern {
+  font-size: 3rem;
 }
 
-.product-title {
-  font-size: 1.1rem;
-  font-weight: 700;
+.product-info-modern {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.product-name-modern {
+  font-size: 1rem;
+  font-weight: 800;
   color: #1a1a1a;
-  margin-bottom: 0.5rem;
   line-height: 1.3;
 }
 
-.product-description {
-  font-size: 0.9rem;
-  color: #666;
+.product-subtitle-modern {
+  font-size: 0.8rem;
+  color: #999;
   line-height: 1.4;
-  margin-bottom: 1rem;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.product-bottom {
+.product-footer-modern {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: 0.5rem;
 }
 
-.product-price {
-  font-size: 1.5rem;
+.product-price-modern {
+  font-size: 1.125rem;
   font-weight: 800;
-  color: #10b981;
+  color: #E74C3C;
 }
 
-.btn-add {
-  width: 40px;
-  height: 40px;
-  background: #10b981;
+.btn-add-modern {
+  width: 32px;
+  height: 32px;
+  background: #E74C3C;
   border: none;
-  border-radius: 50%;
-  color: white;
-  cursor: pointer;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
   transition: all 0.2s;
+  color: white;
+  flex-shrink: 0;
 }
 
-.btn-add:hover {
-  background: #059669;
-  transform: scale(1.1);
+.btn-add-modern:hover:not(:disabled) {
+  background: #C0392B;
+  transform: scale(1.05);
 }
 
-.btn-add:active {
-  transform: scale(0.95);
-}
-
-.btn-add:disabled {
-  background: #e0e0e0;
+.btn-add-modern:disabled {
+  background: #ccc;
   cursor: not-allowed;
 }
 
-.empty-cart {
+/* ===== GRID DE PRODUTOS (para browse e favoritos) ===== */
+.products-grid-modern {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 1rem;
+}
+
+/* ===== CARRINHO MODERNO ===== */
+.tab-cart-modern,
+.tab-browse-modern,
+.tab-profile-modern,
+.tab-favorites {
+  padding: 0;
+}
+
+.page-title-modern {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin-bottom: 1.5rem;
+}
+
+.empty-state {
   text-align: center;
   padding: 4rem 2rem;
 }
 
-.empty-icon {
-  font-size: 5rem;
+.empty-icon-modern {
+  font-size: 4rem;
   margin-bottom: 1rem;
 }
 
-.empty-cart h3 {
-  font-size: 1.5rem;
+.empty-state h3 {
+  font-size: 1.25rem;
   font-weight: 800;
   color: #1a1a1a;
   margin-bottom: 0.5rem;
 }
 
-.empty-cart p {
-  color: #666;
+.empty-state p {
+  color: #999;
   margin-bottom: 2rem;
 }
 
-.btn-back-menu {
-  background: #667eea;
+.btn-back-modern {
+  background: #E74C3C;
   color: white;
   border: none;
-  padding: 1rem 2rem;
-  border-radius: 50px;
+  padding: 0.875rem 2rem;
+  border-radius: 12px;
   font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
 
-.btn-back-menu:hover {
-  background: #5568d3;
+.btn-back-modern:hover {
+  background: #C0392B;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }
 
-.cart-content {
-  max-width: 600px;
-  margin: 0 auto;
+.cart-content-modern {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-.cart-items {
-  margin-bottom: 2rem;
+.cart-items-modern {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.cart-item {
+.cart-item-modern {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 1rem;
-  margin-bottom: 1rem;
   display: flex;
   gap: 1rem;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.cart-item-image {
-  width: 70px;
-  height: 70px;
-  border-radius: 8px;
-  background: #f5f5f5;
+.cart-item-image-modern {
+  width: 80px;
+  height: 80px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f8f9fa;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
   flex-shrink: 0;
 }
 
-.cart-item-image img {
+.cart-item-image-modern img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.cart-placeholder {
+.cart-placeholder-modern {
   font-size: 2rem;
 }
 
-.cart-item-info {
+.cart-item-details {
   flex: 1;
-}
-
-.cart-item-name {
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 0.25rem;
-}
-
-.cart-item-price {
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.cart-item-actions {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 0.5rem;
 }
 
-.quantity-control {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #f5f5f5;
-  border-radius: 50px;
-  padding: 0.25rem;
+.cart-item-name-modern {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: #1a1a1a;
 }
 
-.qty-btn {
-  width: 30px;
-  height: 30px;
-  background: white;
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.qty-btn:active {
-  transform: scale(0.9);
-}
-
-.qty-number {
-  min-width: 2rem;
-  text-align: center;
+.cart-item-price-modern {
+  font-size: 1rem;
   font-weight: 700;
+  color: #E74C3C;
 }
 
-.btn-remove {
-  width: 36px;
-  height: 36px;
+.quantity-control-modern {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.qty-btn-modern {
+  width: 32px;
+  height: 32px;
+  background: #f8f9fa;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 1.125rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qty-btn-modern:hover {
+  background: #E74C3C;
+  border-color: #E74C3C;
+  color: white;
+}
+
+.qty-number-modern {
+  font-weight: 700;
+  font-size: 1rem;
+  min-width: 24px;
+  text-align: center;
+}
+
+.btn-remove-modern {
+  width: 40px;
+  height: 40px;
   background: #fee2e2;
-  color: #ef4444;
   border: none;
-  border-radius: 50%;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  color: #ef4444;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
-.btn-remove:hover {
+.btn-remove-modern:hover {
   background: #fecaca;
+  transform: scale(1.05);
 }
 
-.cart-summary {
+.cart-summary-modern {
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.summary-row {
+.summary-row-modern {
   display: flex;
   justify-content: space-between;
   padding: 0.75rem 0;
   color: #666;
-  font-size: 1rem;
+  font-weight: 600;
 }
 
-.summary-total {
-  border-top: 2px solid #e0e0e0;
-  padding-top: 1rem;
+.summary-total-modern {
+  border-top: 2px solid #f0f0f0;
   margin-top: 0.5rem;
+  padding-top: 1rem;
   font-size: 1.25rem;
   font-weight: 800;
   color: #1a1a1a;
 }
 
-.btn-confirm {
+.btn-confirm-modern {
   width: 100%;
-  background: #10b981;
+  background: #E74C3C;
   color: white;
   border: none;
-  padding: 1.25rem;
+  padding: 1.125rem;
   border-radius: 12px;
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: 1.125rem;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.3s;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }
 
-.btn-confirm:hover {
-  background: #059669;
+.btn-confirm-modern:hover {
+  background: #C0392B;
   transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(231, 76, 60, 0.4);
 }
 
-.btn-confirm:active {
-  transform: translateY(0);
-}
-
-.search-results {
-  margin-top: 2rem;
-}
-
-.results-count {
-  color: #666;
-  margin-bottom: 1rem;
-  font-weight: 600;
-}
-
-.no-results,
-.search-placeholder {
-  text-align: center;
-  padding: 4rem 2rem;
-}
-
-.no-results-icon,
-.search-placeholder-icon {
-  font-size: 5rem;
-  margin-bottom: 1rem;
-}
-
-.no-results h3,
-.search-placeholder h3 {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #1a1a1a;
-  margin-bottom: 0.5rem;
-}
-
-.no-results p,
-.search-placeholder p {
-  color: #666;
-}
-
-.account-card {
-  max-width: 600px;
-  margin: 0 auto;
+/* ===== PERFIL MODERNO ===== */
+.profile-card {
   background: white;
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.account-header {
-  display: flex;
-  gap: 1.5rem;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid #e0e0e0;
-  margin-bottom: 2rem;
-}
-
-.account-avatar {
-  width: 80px;
-  height: 80px;
+.profile-avatar,
+.profile-avatar-default {
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid #e0e0e0;
+  margin: 0 auto 1rem;
+  border: 4px solid #f0f0f0;
 }
 
-.account-avatar-default {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.profile-avatar-default {
+  background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 2rem;
-  border: 3px solid #e0e0e0;
+  font-size: 2.5rem;
 }
 
-.account-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.account-name {
+.profile-name {
   font-size: 1.5rem;
   font-weight: 800;
   color: #1a1a1a;
   margin-bottom: 0.5rem;
 }
 
-.account-email {
-  color: #666;
-  font-size: 1rem;
-}
-
-.account-section {
+.profile-email {
+  color: #999;
   margin-bottom: 2rem;
 }
 
-.info-item {
+.profile-info {
+  margin-bottom: 2rem;
+}
+
+.info-row {
   display: flex;
   justify-content: space-between;
   padding: 1rem 0;
-  border-bottom: 1px solid #f5f5f5;
-}
-
-.info-label {
-  color: #666;
-  font-weight: 600;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .info-value {
-  color: #1a1a1a;
   font-weight: 700;
+  color: #1a1a1a;
 }
 
 .status-active {
   color: #10b981;
 }
 
-.btn-logout-full {
+.btn-logout-modern {
   width: 100%;
   background: #fee2e2;
   color: #ef4444;
@@ -1674,24 +1656,25 @@ export default {
   transition: all 0.2s;
 }
 
-.btn-logout-full:hover {
+.btn-logout-modern:hover {
   background: #fecaca;
 }
 
-.bottom-nav {
+/* ===== BOTTOM NAV MODERNA ===== */
+.bottom-nav-modern {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: white;
-  border-top: 1px solid #e0e0e0;
+  background: #E74C3C;
   display: flex;
   justify-content: space-around;
-  padding: 0.5rem 0;
+  padding: 0.75rem 0;
   z-index: 100;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.nav-item {
+.nav-item-modern {
   flex: 1;
   background: none;
   border: none;
@@ -1701,32 +1684,26 @@ export default {
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
-  color: #999;
+  color: rgba(255, 255, 255, 0.6);
   transition: all 0.2s;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.nav-item.active {
-  color: #667eea;
+.nav-item-modern.active {
+  color: white;
 }
 
-.nav-icon-wrapper {
+.nav-icon-wrapper-modern {
   position: relative;
 }
 
-.nav-icon {
-  transition: all 0.2s;
-}
-
-.nav-item.active .nav-icon {
-  stroke: #667eea;
-}
-
-.cart-badge {
+.cart-badge-modern {
   position: absolute;
   top: -8px;
   right: -8px;
-  background: #ef4444;
-  color: white;
+  background: white;
+  color: #E74C3C;
   font-size: 0.7rem;
   font-weight: 800;
   min-width: 18px;
@@ -1735,15 +1712,10 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid white;
 }
 
-.nav-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.toast {
+/* ===== TOAST MODERNO ===== */
+.toast-modern {
   position: fixed;
   bottom: 100px;
   left: 50%;
@@ -1758,16 +1730,6 @@ export default {
   font-weight: 700;
   box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
   z-index: 1000;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 
 .toast-enter-active {
@@ -1800,23 +1762,25 @@ export default {
   }
 }
 
+/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
-  .products-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .content {
-    padding: 1rem 1rem 100px 1rem;
-  }
-
-  .page-title {
+  .main-title {
     font-size: 1.5rem;
+  }
+  
+  .section-title-modern {
+    font-size: 1.125rem;
+  }
+  
+  .modern-content {
+    padding: 1rem;
   }
 }
 
 @media (min-width: 769px) {
-  .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  .app-main-modern {
+    max-width: 480px;
+    margin: 0 auto;
   }
 }
 </style>
