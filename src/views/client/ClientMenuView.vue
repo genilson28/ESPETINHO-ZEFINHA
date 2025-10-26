@@ -461,6 +461,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { supabase } from '@/services/supabase';
+// ✨ NOVO: Import do Firebase para login com Google REAL
+import { auth, googleProvider, signInWithPopup } from '@/services/firebase';
 
 export default {
   name: 'CardapioDigital',
@@ -756,27 +758,89 @@ export default {
       return num.toFixed(2).replace('.', ',');
     };
 
+    // ========================================
+    // 🔥 LOGIN COM GOOGLE - REAL (Firebase)
+    // ========================================
     const loginWithGoogle = async () => {
-      console.log('Iniciando login...');
-      setTimeout(() => {
+      console.log('🔐 Iniciando login com Google...');
+      
+      try {
+        // Abre popup do Google para login
+        const result = await signInWithPopup(auth, googleProvider);
+        
+        // Dados do usuário autenticado
+        const googleUser = result.user;
+        
+        console.log('✅ Login realizado com sucesso!');
+        console.log('👤 Usuário:', googleUser.displayName);
+        console.log('📧 Email:', googleUser.email);
+        
+        // Salva os dados do usuário
         user.value = {
-          name: 'João Silva',
-          email: 'joao.silva@gmail.com',
-          photoURL: 'https://i.pravatar.cc/150?img=12',
-          uid: 'mock-uid-123'
+          name: googleUser.displayName || 'Usuário',
+          email: googleUser.email,
+          photoURL: googleUser.photoURL,
+          uid: googleUser.uid
         };
+        
         isAuthenticated.value = true;
+        
+        // Carrega os produtos
         loadData();
-        showToastMessage('Login realizado com sucesso!');
-      }, 1000);
+        
+        // Mostra mensagem de sucesso
+        showToastMessage(`Bem-vindo, ${user.value.name}!`);
+        
+      } catch (error) {
+        console.error('❌ Erro no login:', error);
+        
+        // Tratamento de erros
+        let errorMessage = 'Erro ao fazer login';
+        
+        if (error.code === 'auth/popup-closed-by-user') {
+          errorMessage = 'Login cancelado';
+        } else if (error.code === 'auth/popup-blocked') {
+          errorMessage = 'Popup bloqueado pelo navegador. Permita popups para fazer login.';
+        } else if (error.code === 'auth/cancelled-popup-request') {
+          errorMessage = 'Outro popup de login já está aberto';
+        } else if (error.code === 'auth/network-request-failed') {
+          errorMessage = 'Sem conexão com a internet';
+        }
+        
+        showToastMessage(errorMessage);
+      }
     };
 
-    const logout = () => {
-      user.value = { name: '', email: '', photoURL: '', uid: '' };
-      isAuthenticated.value = false;
-      cart.value = [];
-      favorites.value = [];
-      showToastMessage('Você saiu da conta');
+    // ========================================
+    // 🚪 LOGOUT - REAL (Firebase)
+    // ========================================
+    const logout = async () => {
+      try {
+        console.log('👋 Fazendo logout...');
+        
+        // Desloga do Firebase
+        await auth.signOut();
+        
+        // Limpa os dados locais
+        user.value = { name: '', email: '', photoURL: '', uid: '' };
+        isAuthenticated.value = false;
+        cart.value = [];
+        favorites.value = [];
+        
+        showToastMessage('Você saiu da conta');
+        console.log('✅ Logout realizado com sucesso');
+        
+      } catch (error) {
+        console.error('❌ Erro no logout:', error);
+        
+        // Mesmo com erro, limpa tudo localmente
+        user.value = { name: '', email: '', photoURL: '', uid: '' };
+        isAuthenticated.value = false;
+        cart.value = [];
+        favorites.value = [];
+        
+        showToastMessage('Sessão encerrada');
+      }
     };
 
     const toggleFavorite = (productId) => {
@@ -864,9 +928,34 @@ export default {
       }, 3000);
     };
 
+    // ========================================
+    // 🔄 VERIFICAR SESSÃO AO CARREGAR
+    // ========================================
     onMounted(() => {
-      console.log('Componente montado, carregando dados...');
-      loadData();
+      console.log('📱 Componente montado');
+      
+      // Verifica se já existe sessão ativa no Firebase
+      auth.onAuthStateChanged((firebaseUser) => {
+        if (firebaseUser) {
+          console.log('✅ Sessão ativa encontrada:', firebaseUser.displayName);
+          
+          // Restaura os dados do usuário
+          user.value = {
+            name: firebaseUser.displayName || 'Usuário',
+            email: firebaseUser.email,
+            photoURL: firebaseUser.photoURL,
+            uid: firebaseUser.uid
+          };
+          
+          isAuthenticated.value = true;
+          
+          // Carrega os produtos
+          loadData();
+        } else {
+          console.log('⚠️ Nenhuma sessão ativa - mostrando tela de login');
+          isAuthenticated.value = false;
+        }
+      });
     });
 
     return {
