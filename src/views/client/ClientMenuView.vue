@@ -152,7 +152,7 @@
                   <h3 class="product-title">{{ product.nome }}</h3>
                   <p class="product-description">{{ product.descricao }}</p>
                   <div class="product-bottom">
-                    <span class="product-price">R$ {{ formatPrice(product.preco_venda) }}</span>
+                    <span class="product-price">R$ {{ formatPrice(product.preco) }}</span>
                     <button 
                       class="btn-add" 
                       @click.stop="addToCart(product)"
@@ -192,7 +192,7 @@
                   <h3 class="product-title">{{ product.nome }}</h3>
                   <p class="product-description">{{ product.descricao }}</p>
                   <div class="product-bottom">
-                    <span class="product-price">R$ {{ formatPrice(product.preco_venda) }}</span>
+                    <span class="product-price">R$ {{ formatPrice(product.preco) }}</span>
                     <button 
                       class="btn-add" 
                       @click.stop="addToCart(product)"
@@ -231,7 +231,7 @@
                 </div>
                 <div class="cart-item-info">
                   <h4 class="cart-item-name">{{ item.nome }}</h4>
-                  <p class="cart-item-price">R$ {{ formatPrice(item.preco_venda) }}</p>
+                  <p class="cart-item-price">R$ {{ formatPrice(item.preco) }}</p>
                 </div>
                 <div class="cart-item-actions">
                   <div class="quantity-control">
@@ -321,7 +321,7 @@
                   <h3 class="product-title">{{ product.nome }}</h3>
                   <p class="product-description">{{ product.descricao }}</p>
                   <div class="product-bottom">
-                    <span class="product-price">R$ {{ formatPrice(product.preco_venda) }}</span>
+                    <span class="product-price">R$ {{ formatPrice(product.preco) }}</span>
                     <button 
                       class="btn-add" 
                       @click.stop="addToCart(product)"
@@ -491,7 +491,7 @@ export default {
           id: 1,
           nome: 'Espetinho de Carne',
           descricao: 'Carne bovina temperada e grelhada na hora',
-          preco_venda: 8.00,
+          preco: 8.00,
           categoria: 'espetinho',
           estoque_atual: 50,
           estoque_minimo: 10,
@@ -503,7 +503,7 @@ export default {
           id: 2,
           nome: 'Espetinho de Frango',
           descricao: 'Frango suculento com temperos especiais',
-          preco_venda: 7.00,
+          preco: 7.00,
           categoria: 'espetinho',
           estoque_atual: 45,
           estoque_minimo: 10,
@@ -515,7 +515,7 @@ export default {
           id: 3,
           nome: 'Espetinho de Linguiça',
           descricao: 'Linguiça artesanal defumada',
-          preco_venda: 9.00,
+          preco: 9.00,
           categoria: 'espetinho',
           estoque_atual: 4,
           estoque_minimo: 10,
@@ -527,7 +527,7 @@ export default {
           id: 4,
           nome: 'Espetinho de Coração',
           descricao: 'Coração de frango bem temperado',
-          preco_venda: 6.50,
+          preco: 6.50,
           categoria: 'espetinho',
           estoque_atual: 30,
           estoque_minimo: 10,
@@ -539,7 +539,7 @@ export default {
           id: 5,
           nome: 'Coca-Cola Lata',
           descricao: 'Refrigerante 350ml gelado',
-          preco_venda: 5.00,
+          preco: 5.00,
           categoria: 'bebida',
           estoque_atual: 30,
           estoque_minimo: 10,
@@ -551,7 +551,7 @@ export default {
           id: 6,
           nome: 'Guaraná Antarctica',
           descricao: 'Refrigerante 350ml gelado',
-          preco_venda: 5.00,
+          preco: 5.00,
           categoria: 'bebida',
           estoque_atual: 25,
           estoque_minimo: 10,
@@ -563,7 +563,7 @@ export default {
           id: 7,
           nome: 'Água Mineral',
           descricao: 'Água mineral 500ml',
-          preco_venda: 3.00,
+          preco: 3.00,
           categoria: 'bebida',
           estoque_atual: 40,
           estoque_minimo: 10,
@@ -575,7 +575,7 @@ export default {
           id: 8,
           nome: 'Cerveja Heineken',
           descricao: 'Long neck 330ml',
-          preco_venda: 8.00,
+          preco: 8.00,
           categoria: 'bebida',
           estoque_atual: 20,
           estoque_minimo: 10,
@@ -587,7 +587,7 @@ export default {
           id: 9,
           nome: 'Batata Frita',
           descricao: 'Porção de batata frita crocante',
-          preco_venda: 12.00,
+          preco: 12.00,
           categoria: 'acompanhamento',
           estoque_atual: 20,
           estoque_minimo: 5,
@@ -599,7 +599,7 @@ export default {
           id: 10,
           nome: 'Mandioca Frita',
           descricao: 'Porção de mandioca crocante',
-          preco_venda: 10.00,
+          preco: 10.00,
           categoria: 'acompanhamento',
           estoque_atual: 15,
           estoque_minimo: 5,
@@ -611,7 +611,7 @@ export default {
           id: 11,
           nome: 'Farofa',
           descricao: 'Farofa caseira temperada',
-          preco_venda: 8.00,
+          preco: 8.00,
           categoria: 'acompanhamento',
           estoque_atual: 18,
           estoque_minimo: 5,
@@ -623,7 +623,7 @@ export default {
           id: 12,
           nome: 'Vinagrete',
           descricao: 'Molho vinagrete caseiro',
-          preco_venda: 5.00,
+          preco: 5.00,
           categoria: 'acompanhamento',
           estoque_atual: 25,
           estoque_minimo: 5,
@@ -714,7 +714,7 @@ export default {
     );
 
     const totalPrice = computed(() => 
-      cart.value.reduce((sum, item) => sum + (item.preco_venda * item.quantity), 0)
+      cart.value.reduce((sum, item) => sum + (item.preco * item.quantity), 0)
     );
 
     const userInitial = computed(() => 
@@ -817,7 +817,7 @@ export default {
           produto_id: item.id,
           nome: item.nome,
           quantidade: item.quantity,
-          preco_unitario: item.preco_venda
+          preco_unitario: item.preco
         })),
         total: totalPrice.value,
         data_pedido: new Date().toISOString()
