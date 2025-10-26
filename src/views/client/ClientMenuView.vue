@@ -914,8 +914,18 @@ export default {
 
 .app-wrapper {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
   background: #f8f9fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Reset de margens e padding do body */
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
 }
 
 /* ===== LOGIN SCREEN ===== */
@@ -1018,6 +1028,8 @@ export default {
 /* ===== APP PRINCIPAL MODERNO ===== */
 .app-main-modern {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
   background: #f8f9fa;
   padding-bottom: 80px;
 }
@@ -1779,8 +1791,8 @@ export default {
 
 @media (min-width: 769px) {
   .app-main-modern {
-    max-width: 480px;
-    margin: 0 auto;
+    max-width: 100%;
+    margin: 0;
   }
 }
 </style>
