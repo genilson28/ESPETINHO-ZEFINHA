@@ -21,7 +21,8 @@ export const useNavigationStore = defineStore('navigation', {
     },
 
     cameFromDashboard: (state) => {
-      return state.currentContext.from === 'dashboard'
+      return state.currentContext.from === 'dashboard' || 
+             state.currentContext.from === 'dashboard-garcom'
     },
 
     cameFromTables: (state) => {
@@ -71,7 +72,8 @@ export const useNavigationStore = defineStore('navigation', {
         from: from,
         tableId: table.id,
         tableNumber: table.numero,
-        returnTo: from === 'dashboard' ? 'dashboard' : 'tables'
+        returnTo: from === 'dashboard' ? 'dashboard' : 
+                  from === 'dashboard-garcom' ? 'dashboard-garcom' : 'tables'
       })
 
       router.push({
@@ -93,6 +95,8 @@ export const useNavigationStore = defineStore('navigation', {
       if (returnTo) {
         if (returnTo === 'dashboard') {
           this.goToDashboard(router, userRole)
+        } else if (returnTo === 'dashboard-garcom') {
+          router.push({ name: 'dashboard-garcom' })
         } else if (returnTo === 'tables') {
           router.push({ name: 'tables' })
         } else {
@@ -105,6 +109,8 @@ export const useNavigationStore = defineStore('navigation', {
       // Se veio de algum lugar específico, volta pra lá
       if (from === 'dashboard') {
         this.goToDashboard(router, userRole)
+      } else if (from === 'dashboard-garcom') {
+        router.push({ name: 'dashboard-garcom' })
       } else if (from === 'tables') {
         router.push({ name: 'tables' })
       } else {
@@ -125,6 +131,8 @@ export const useNavigationStore = defineStore('navigation', {
         router.push({ name: 'dashboard-gerente' })
       } else if (userRole === 'admin') {
         router.push({ name: 'home' })
+      } else if (userRole === 'garcom') {
+        router.push({ name: 'dashboard-garcom' })
       } else {
         router.push({ name: 'tables' })
       }
@@ -139,6 +147,8 @@ export const useNavigationStore = defineStore('navigation', {
           router.push({ name: 'dashboard-gerente' })
           break
         case 'garcom':
+          router.push({ name: 'dashboard-garcom' })
+          break
         case 'caixa':
           router.push({ name: 'tables' })
           break
