@@ -85,8 +85,20 @@ const userStore = useUserStore()
 const route = useRoute()
 const showEmergencyButton = ref(false)
 
-// ✅ NOVO: Mostrar botão de emergência após 10 segundos de loading
-onMounted(() => {
+// ✅ CRÍTICO: Inicializar auth quando App monta
+onMounted(async () => {
+  console.log('🎯 App.vue montado, iniciando auth...')
+  
+  // Inicializar auth se ainda não foi inicializado
+  if (!userStore.authInitialized && !userStore.authLoading) {
+    try {
+      await userStore.initAuth()
+    } catch (error) {
+      console.error('❌ Erro ao inicializar auth no App.vue:', error)
+    }
+  }
+  
+  // Mostrar botão de emergência após 10 segundos de loading
   setTimeout(() => {
     if (userStore.authLoading) {
       showEmergencyButton.value = true
