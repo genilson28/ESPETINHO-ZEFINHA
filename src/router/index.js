@@ -291,15 +291,31 @@ const router = createRouter({
 })
 
 // ============================================
-// ROUTER GUARD
+// ROUTER GUARD - CORRIGIDO
 // ============================================
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   
-  // Aguardar inicialização do auth
-  if (!userStore.authInitialized) {
+  // ✅ CRÍTICO: Inicializar auth APENAS UMA VEZ na primeira navegação
+  if (!userStore.authInitialized && !userStore.authLoading) {
     console.log('⏳ Aguardando inicialização do auth...')
-    await userStore.initAuth()
+    try {
+      await userStore.initAuth()
+    } catch (error) {
+      console.error('❌ Erro ao inicializar auth no router:', error)
+      // Se falhar, permite continuar para não travar o app
+    }
+  }
+
+  // ✅ AGUARDAR se auth ainda está carregando (chamado por outro lugar)
+  let attempts = 0
+  while (userStore.authLoading && attempts < 50) {
+    await new Promise(resolve => setTimeout(resolve, 100))
+    attempts++
+  }
+
+  if (attempts >= 50) {
+    console.error('⏰ Timeout ao aguardar auth, continuando...')
   }
 
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
@@ -342,10 +358,13 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // ============================================
-  // REGISTRAR LOG (Opcional)
+  // REGISTRAR LOG (Opcional - em background)
   // ============================================
   if (userStore.logAction && typeof userStore.logAction === 'function') {
-    await userStore.logAction('navigation', `Acessou: ${to.path}`)
+    // Executar em background sem bloquear navegação
+    userStore.logAction('navigation', `Acessou: ${to.path}`).catch(err => {
+      console.warn('⚠️ Erro ao registrar log de navegação:', err)
+    })
   }
 
   next()
