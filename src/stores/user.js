@@ -3,6 +3,16 @@ import { defineStore } from 'pinia'
 import { supabase, TABLES } from '@/services/supabase'
 import { syncService } from '@/services/syncService'
 
+// ✅ Função helper para timeout (da minha solução)
+const withTimeout = (promise, timeoutMs = 10000, errorMsg = 'Operação excedeu o tempo limite') => {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(errorMsg)), timeoutMs)
+    )
+  ])
+}
+
 export const useUserStore = defineStore('user', {
   state: () => ({
     currentUser: null,
@@ -12,7 +22,8 @@ export const useUserStore = defineStore('user', {
     error: null,
     authLoading: true,
     authInitialized: false,
-    authListener: null, // ✅ NOVO: Armazenar referência do listener
+    authListener: null,
+    isFetchingProfile: false, // ✅ Da sua solução
     isOnline: syncService.checkOnlineStatus(),
     pendingSync: syncService.getPendingCount()
   }),
@@ -49,15 +60,24 @@ export const useUserStore = defineStore('user', {
     async initAuth() {
       console.log('🔐 Iniciando autenticação...')
       
-      // ✅ CRÍTICO: Só registrar listener UMA VEZ
-      if (!this.authInitialized) {
-        this.setupAuthListener()
+      // ✅ Da sua solução: Verificação robusta
+      if (this.authInitialized) {
+        console.log('⚠️ Auth já inicializado, ignorando...')
+        return
       }
+      
+      // ✅ Da sua solução: Configurar listener APENAS UMA VEZ
+      this.setupAuthListener()
       
       this.authLoading = true
       
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        // ✅ Da minha solução: Timeout na busca de sessão
+        const { data: { session }, error: sessionError } = await withTimeout(
+          supabase.auth.getSession(),
+          8000,
+          'Timeout ao buscar sessão'
+        )
         
         if (sessionError) {
           console.error('❌ Erro ao obter sessão:', sessionError)
@@ -66,26 +86,39 @@ export const useUserStore = defineStore('user', {
 
         if (session?.user) {
           console.log('✅ Sessão encontrada para:', session.user.email)
-          this.currentUser = session.user
-          await this.fetchProfile(session.user)
+          
+          // ✅ Da sua solução: Evitar fetch duplicado
+          if (!this.profile || this.profile.email !== session.user.email) {
+            this.currentUser = session.user
+            await this.fetchProfile(session.user)
+          }
         } else {
           console.log('⚠️ Nenhuma sessão ativa encontrada')
-          this.currentUser = null
-          this.profile = null
-          this.permissions = null
+          this.clearUserData()
         }
         
         this.updateConnectionStatus()
       } catch (error) {
         console.error('❌ Erro ao inicializar auth:', error)
         this.error = error.message
+        this.clearUserData()
+        
+        // ✅ Da minha solução: Tratamento especial de timeout
+        if (error.message.includes('Timeout') || error.message.includes('tempo limite')) {
+          console.log('⏰ Detectado timeout, limpando sessão...')
+          try {
+            await supabase.auth.signOut()
+          } catch (signOutError) {
+            console.error('Erro ao fazer signOut:', signOutError)
+          }
+        }
       } finally {
         this.authLoading = false
         this.authInitialized = true
       }
     },
 
-    // ✅ NOVO: Método separado para configurar listener APENAS UMA VEZ
+    // ✅ Da sua solução: Listener com switch/case organizado
     setupAuthListener() {
       if (this.authListener) {
         console.log('⚠️ Listener já existe, ignorando...')
@@ -97,40 +130,82 @@ export const useUserStore = defineStore('user', {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email)
         
-        // ✅ Ignorar evento inicial para evitar fetch duplicado
-        if (event === 'INITIAL_SESSION') {
+        // ✅ Da sua solução: Ignorar eventos desnecessários
+        if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+          console.log('🔕 Ignorando evento:', event)
           return
         }
         
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ Usuário fez login:', session.user.email)
-          this.currentUser = session.user
-          await this.fetchProfile(session.user)
-          this.updateConnectionStatus()
-        } else if (event === 'SIGNED_OUT') {
-          console.log('👋 Usuário fez logout')
-          this.currentUser = null
-          this.profile = null
-          this.permissions = null
-        } else if (event === 'USER_UPDATED') {
-          console.log('🔄 Usuário atualizado')
-          this.currentUser = session?.user || null
+        // ✅ Da sua solução: Controle de concorrência
+        if (this.isFetchingProfile) {
+          console.log('⏳ Já buscando perfil, ignorando evento...')
+          return
         }
+
+        // ✅ Da sua solução: Switch/case organizado
+        switch (event) {
+          case 'SIGNED_IN':
+            if (session?.user) {
+              console.log('✅ Usuário fez login:', session.user.email)
+              
+              // ✅ Da sua solução: Verificação de ID mais segura
+              if (!this.currentUser || this.currentUser.id !== session.user.id) {
+                this.currentUser = session.user
+                
+                try {
+                  await this.fetchProfile(session.user)
+                } catch (error) {
+                  console.error('❌ Erro no listener ao buscar perfil:', error)
+                  this.error = 'Erro ao carregar perfil do usuário'
+                }
+              }
+            }
+            break;
+            
+          case 'SIGNED_OUT':
+            console.log('👋 Usuário fez logout')
+            this.clearUserData()
+            break;
+            
+          case 'USER_UPDATED':
+            console.log('🔄 Usuário atualizado')
+            this.currentUser = session?.user || null
+            break;
+            
+          default:
+            console.log('🔔 Evento não tratado:', event)
+        }
+        
+        this.updateConnectionStatus()
       })
 
       this.authListener = subscription
     },
 
+    // ✅ Híbrido: Sua estrutura + meus timeouts
     async fetchProfile(authUser) {
+      // ✅ Da sua solução: Evitar múltiplas chamadas simultâneas
+      if (this.isFetchingProfile) {
+        console.log('⏳ Fetch de perfil já em andamento...')
+        return
+      }
+
+      this.isFetchingProfile = true
+      
       try {
         console.log('👤 Buscando perfil para:', authUser.email)
         
-        const { data: usuarioData, error: usuarioError } = await supabase
-          .from('pwa_usuarios')
-          .select('*')
-          .or(`auth_id.eq.${authUser.id},email.eq.${authUser.email}`)
-          .eq('ativo', true)
-          .maybeSingle()
+        // ✅ Da minha solução: Timeout na query
+        const { data: usuarioData, error: usuarioError } = await withTimeout(
+          supabase
+            .from('pwa_usuarios')
+            .select('*')
+            .or(`auth_id.eq.${authUser.id},email.eq.${authUser.email}`)
+            .eq('ativo', true)
+            .maybeSingle(),
+          8000,
+          'Timeout ao buscar usuário no banco de dados'
+        )
 
         if (usuarioError) {
           console.error('❌ Erro ao buscar usuário:', usuarioError)
@@ -142,39 +217,70 @@ export const useUserStore = defineStore('user', {
           throw new Error('Usuário não cadastrado no sistema. Entre em contato com o administrador.')
         }
 
+        // ✅ Atualizar auth_id se necessário
         if (!usuarioData.auth_id) {
           console.log('⚠️ Atualizando auth_id do usuário...')
           
-          const { error: updateError } = await supabase
-            .from('pwa_usuarios')
-            .update({ auth_id: authUser.id })
-            .eq('id', usuarioData.id)
+          const { error: updateError } = await withTimeout(
+            supabase
+              .from('pwa_usuarios')
+              .update({ auth_id: authUser.id })
+              .eq('id', usuarioData.id),
+            5000,
+            'Timeout ao atualizar auth_id'
+          )
           
           if (!updateError) {
             usuarioData.auth_id = authUser.id
           }
         }
 
-        console.log('✅ Usuário encontrado:', usuarioData.nome, '- Role:', usuarioData.role)
-        
-        this.profile = {
-          id: usuarioData.id,
-          auth_id: usuarioData.auth_id,
-          role: usuarioData.role,
-          nome: usuarioData.nome,
-          email: usuarioData.email,
-          telefone: usuarioData.telefone,
-          ativo: usuarioData.ativo
+        // ✅ Da sua solução: Só atualizar se os dados forem diferentes
+        if (!this.profile || this.profile.id !== usuarioData.id) {
+          console.log('✅ Usuário encontrado:', usuarioData.nome, '- Role:', usuarioData.role)
+          
+          this.profile = {
+            id: usuarioData.id,
+            auth_id: usuarioData.auth_id,
+            role: usuarioData.role,
+            nome: usuarioData.nome,
+            email: usuarioData.email,
+            telefone: usuarioData.telefone,
+            ativo: usuarioData.ativo
+          }
+          
+          // ✅ Da minha solução: Buscar permissões de forma não-bloqueante
+          try {
+            await withTimeout(
+              this.fetchPermissions(usuarioData.role),
+              5000,
+              'Timeout ao buscar permissões'
+            )
+          } catch (permError) {
+            console.warn('⚠️ Erro ao buscar permissões, usando padrão:', permError)
+            this.permissions = this.getDefaultPermissions(usuarioData.role)
+          }
+          
+          // ✅ Da minha solução: Log em background
+          this.logAction('login', `Login realizado: ${usuarioData.nome || usuarioData.email}`).catch(err => {
+            console.warn('⚠️ Erro ao registrar log:', err)
+          })
+        } else {
+          console.log('ℹ️ Perfil já carregado, ignorando...')
         }
-        
-        await this.fetchPermissions(usuarioData.role)
-        await this.logAction('login', `Login realizado: ${usuarioData.nome || usuarioData.email}`)
         
       } catch (error) {
         console.error('❌ Erro ao buscar perfil:', error)
         this.error = error.message
-        await supabase.auth.signOut()
+        
+        // ✅ Da minha solução: Só fazer signOut se não for timeout
+        if (!error.message.includes('Timeout') && !error.message.includes('tempo limite')) {
+          await supabase.auth.signOut()
+        }
+        
         throw error
+      } finally {
+        this.isFetchingProfile = false
       }
     },
 
@@ -288,10 +394,12 @@ export const useUserStore = defineStore('user', {
       this.error = null
       
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({ 
-          email, 
-          password 
-        })
+        // ✅ Da minha solução: Timeout no login
+        const { data, error } = await withTimeout(
+          supabase.auth.signInWithPassword({ email, password }),
+          10000,
+          'Timeout ao fazer login'
+        )
 
         if (error) {
           console.error('❌ Erro de autenticação:', error.message)
@@ -299,6 +407,8 @@ export const useUserStore = defineStore('user', {
         }
 
         console.log('✅ Login bem-sucedido para:', email)
+        
+        // ✅ O listener onAuthStateChange vai tratar o resto
         await new Promise(resolve => setTimeout(resolve, 500))
         this.updateConnectionStatus()
 
@@ -311,6 +421,8 @@ export const useUserStore = defineStore('user', {
           this.error = 'Usuário não encontrado.'
         } else if (error.message.includes('Email not confirmed')) {
           this.error = 'Por favor, confirme seu e-mail.'
+        } else if (error.message.includes('Timeout') || error.message.includes('tempo limite')) {
+          this.error = 'Conexão lenta. Tente novamente.'
         } else {
           this.error = error.message || 'Erro ao fazer login.'
         }
@@ -324,7 +436,9 @@ export const useUserStore = defineStore('user', {
       console.log('👋 Fazendo logout...')
       try {
         if (this.profile?.id) {
-          await this.logAction('logout', 'Logout realizado')
+          this.logAction('logout', 'Logout realizado').catch(err => {
+            console.warn('⚠️ Erro ao registrar log de logout:', err)
+          })
         }
         
         const { error } = await supabase.auth.signOut()
@@ -332,12 +446,9 @@ export const useUserStore = defineStore('user', {
           console.error('Erro ao fazer signOut:', error)
         }
         
-        this.currentUser = null
-        this.profile = null
-        this.permissions = null
+        this.clearUserData()
         this.authInitialized = false
         
-        // ✅ Limpar listener
         if (this.authListener) {
           this.authListener.unsubscribe()
           this.authListener = null
@@ -351,13 +462,19 @@ export const useUserStore = defineStore('user', {
         console.error('❌ Erro no logout:', error)
         this.error = error.message
         
-        this.currentUser = null
-        this.profile = null
-        this.permissions = null
+        this.clearUserData()
         this.authInitialized = false
         
         return false
       }
+    },
+
+    // ✅ Da sua solução: Método auxiliar para limpar dados
+    clearUserData() {
+      this.currentUser = null
+      this.profile = null
+      this.permissions = null
+      this.isFetchingProfile = false
     },
     
     stopRealtimeSubscription() {
