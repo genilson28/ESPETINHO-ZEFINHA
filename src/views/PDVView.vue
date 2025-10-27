@@ -136,13 +136,21 @@ const getCategoryIcon = (category) => {
   return 'package'
 }
 
+// FUNÇÃO CORRIGIDA - Agora volta para o dashboard do gerente
 const goBack = () => {
-  const from = route.query.from || 'tables'
-  if (from === 'dashboard') {
-    router.push({ name: 'tables', query: { from: 'dashboard' } })
-  } else {
-    router.push({ name: 'tables' })
+  // Verifica se há itens no carrinho antes de sair
+  if (cartStore.cartItems.length > 0) {
+    const confirmLeave = confirm('Há itens no carrinho. Tem certeza que deseja voltar? O carrinho será limpo.')
+    if (!confirmLeave) {
+      return // Usuário cancelou, não faz nada
+    }
   }
+  
+  // Limpa o carrinho se o usuário confirmou
+  cartStore.clearCart()
+  
+  // Redireciona para o dashboard do gerente
+  router.push('/dashboard-gerente')
 }
 
 const nextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++ }
