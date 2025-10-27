@@ -12,7 +12,7 @@ export const useUserStore = defineStore('user', {
     error: null,
     authLoading: true,
     authInitialized: false,
-    // ✅ NOVO: Estado de sincronização
+    authListener: null, // ✅ NOVO: Armazenar referência do listener
     isOnline: syncService.checkOnlineStatus(),
     pendingSync: syncService.getPendingCount()
   }),
@@ -24,27 +24,23 @@ export const useUserStore = defineStore('user', {
     isCaixa: (state) => state.profile?.role === 'caixa',
     isGerente: (state) => state.profile?.role === 'gerente',
     
-    // Verificar permissão específica
     can: (state) => (permission) => {
       if (!state.permissions) return false
       return state.permissions[permission] === true
     },
 
-    // ✅ NOVO: Status da conexão
     connectionStatus: (state) => {
       if (!state.isOnline) return 'offline'
       if (state.pendingSync > 0) return 'syncing'
       return 'online'
     },
 
-    // ✅ NOVO: Verificar se há operações pendentes
     hasPendingOperations: (state) => {
       return state.pendingSync > 0
     }
   },
 
   actions: {
-    // ✅ NOVO: Atualizar status de conexão
     updateConnectionStatus() {
       this.isOnline = syncService.checkOnlineStatus()
       this.pendingSync = syncService.getPendingCount()
@@ -52,10 +48,15 @@ export const useUserStore = defineStore('user', {
 
     async initAuth() {
       console.log('🔐 Iniciando autenticação...')
+      
+      // ✅ CRÍTICO: Só registrar listener UMA VEZ
+      if (!this.authInitialized) {
+        this.setupAuthListener()
+      }
+      
       this.authLoading = true
       
       try {
-        // Obter sessão atual
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
         if (sessionError) {
@@ -74,7 +75,6 @@ export const useUserStore = defineStore('user', {
           this.permissions = null
         }
         
-        // ✅ Atualizar status de sincronização
         this.updateConnectionStatus()
       } catch (error) {
         console.error('❌ Erro ao inicializar auth:', error)
@@ -83,10 +83,24 @@ export const useUserStore = defineStore('user', {
         this.authLoading = false
         this.authInitialized = true
       }
+    },
 
-      // Configurar listener para mudanças de autenticação
-      supabase.auth.onAuthStateChange(async (event, session) => {
+    // ✅ NOVO: Método separado para configurar listener APENAS UMA VEZ
+    setupAuthListener() {
+      if (this.authListener) {
+        console.log('⚠️ Listener já existe, ignorando...')
+        return
+      }
+
+      console.log('🎧 Configurando listener de autenticação...')
+      
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email)
+        
+        // ✅ Ignorar evento inicial para evitar fetch duplicado
+        if (event === 'INITIAL_SESSION') {
+          return
+        }
         
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('✅ Usuário fez login:', session.user.email)
@@ -103,6 +117,8 @@ export const useUserStore = defineStore('user', {
           this.currentUser = session?.user || null
         }
       })
+
+      this.authListener = subscription
     },
 
     async fetchProfile(authUser) {
@@ -126,7 +142,6 @@ export const useUserStore = defineStore('user', {
           throw new Error('Usuário não cadastrado no sistema. Entre em contato com o administrador.')
         }
 
-        // Se encontrou mas não tem auth_id, atualiza
         if (!usuarioData.auth_id) {
           console.log('⚠️ Atualizando auth_id do usuário...')
           
@@ -152,17 +167,12 @@ export const useUserStore = defineStore('user', {
           ativo: usuarioData.ativo
         }
         
-        // Buscar permissões baseado no role
         await this.fetchPermissions(usuarioData.role)
-        
-        // ✅ MODIFICADO: Registrar log de login usando syncService
         await this.logAction('login', `Login realizado: ${usuarioData.nome || usuarioData.email}`)
         
       } catch (error) {
         console.error('❌ Erro ao buscar perfil:', error)
         this.error = error.message
-        
-        // Deslogar se não encontrou o usuário
         await supabase.auth.signOut()
         throw error
       }
@@ -198,7 +208,6 @@ export const useUserStore = defineStore('user', {
     },
 
     getDefaultPermissions(role) {
-      // Permissões padrão caso não existam no banco
       const defaults = {
         admin: {
           ver_dashboard: true,
@@ -290,12 +299,7 @@ export const useUserStore = defineStore('user', {
         }
 
         console.log('✅ Login bem-sucedido para:', email)
-        
-        // O listener será acionado automaticamente
-        // Aguardar um pouco para garantir que o listener processe
         await new Promise(resolve => setTimeout(resolve, 500))
-        
-        // ✅ Atualizar status de sincronização
         this.updateConnectionStatus()
 
       } catch (error) {
@@ -319,7 +323,6 @@ export const useUserStore = defineStore('user', {
     async logout() {
       console.log('👋 Fazendo logout...')
       try {
-        // Registrar log antes de deslogar
         if (this.profile?.id) {
           await this.logAction('logout', 'Logout realizado')
         }
@@ -329,13 +332,17 @@ export const useUserStore = defineStore('user', {
           console.error('Erro ao fazer signOut:', error)
         }
         
-        // Limpar estado
         this.currentUser = null
         this.profile = null
         this.permissions = null
         this.authInitialized = false
         
-        // Parar subscription se houver
+        // ✅ Limpar listener
+        if (this.authListener) {
+          this.authListener.unsubscribe()
+          this.authListener = null
+        }
+        
         this.stopRealtimeSubscription()
         
         console.log('✅ Logout concluído')
@@ -344,7 +351,6 @@ export const useUserStore = defineStore('user', {
         console.error('❌ Erro no logout:', error)
         this.error = error.message
         
-        // Mesmo com erro, limpa tudo
         this.currentUser = null
         this.profile = null
         this.permissions = null
@@ -355,7 +361,6 @@ export const useUserStore = defineStore('user', {
     },
     
     stopRealtimeSubscription() {
-      // Se houver subscriptions ativas, para elas
       if (this.subscription) {
         try {
           this.subscription.unsubscribe()
@@ -366,7 +371,6 @@ export const useUserStore = defineStore('user', {
       }
     },
 
-    // ✅ MODIFICADO: Usando syncService para logs
     async logAction(acao, descricao, entidade = null, entidadeId = null) {
       if (!this.profile?.id) return
 
@@ -381,14 +385,12 @@ export const useUserStore = defineStore('user', {
           user_agent: navigator.userAgent
         }
 
-        // ✅ Usar syncService para garantir que o log seja salvo mesmo offline
         const result = await syncService.insert(TABLES.USUARIOS_LOGS, logData)
         
         if (result.offline) {
           console.log('📴 Log será sincronizado quando voltar online')
         }
         
-        // ✅ Atualizar contador de operações pendentes
         this.updateConnectionStatus()
       } catch (error) {
         console.error('❌ Erro ao registrar log:', error)
@@ -396,7 +398,6 @@ export const useUserStore = defineStore('user', {
     },
 
     async loadUserFromStorage() {
-      // Mantém compatibilidade com o router guard
       await this.initAuth()
     },
 
