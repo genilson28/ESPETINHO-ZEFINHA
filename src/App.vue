@@ -7,7 +7,7 @@
     <div v-if="isLoading" class="loading-screen">
       <div class="loading-spinner"></div>
       <p>Carregando...</p>
-      <!-- ✅ NOVO: Botão de emergência se travar -->
+      <!-- ✅ Botão de emergência se travar -->
       <button 
         v-if="showEmergencyButton" 
         @click="forceReload" 
@@ -19,12 +19,20 @@
 
     <!-- APLICATIVO (só aparece depois de carregar) -->
     <template v-else>
-      <!-- LAYOUT BLANK (Login) -->
+      <!-- LAYOUT BLANK (Login, Cliente) -->
       <div v-if="$route.meta.layout === 'blank'" class="blank-layout">
         <RouterView />
       </div>
 
-      <!-- LAYOUT MOBILE (Garçom/Caixa) - SEM SIDEBAR -->
+      <!-- ✅ LAYOUT GARÇOM - SEM SIDEBAR, SEM MENU -->
+      <div v-else-if="isGarcom" class="garcom-layout">
+        <!-- Apenas o conteúdo, sem header, sem menu -->
+        <main class="garcom-content">
+          <RouterView />
+        </main>
+      </div>
+
+      <!-- LAYOUT MOBILE (Caixa) - SEM SIDEBAR, COM BOTTOM NAV -->
       <div v-else-if="useMobileLayout" class="mobile-layout">
         <!-- Header simples no topo -->
         <TheHeader v-if="userStore.isAuthenticated" />
@@ -38,7 +46,7 @@
         <BottomNav />
       </div>
 
-      <!-- LAYOUT GERENTE - SEM SIDEBAR -->
+      <!-- LAYOUT GERENTE - SEM SIDEBAR, COM HEADER -->
       <div v-else-if="isGerente" class="gerente-layout">
         <!-- Header no topo -->
         <TheHeader v-if="userStore.isAuthenticated" />
@@ -109,11 +117,17 @@ onMounted(async () => {
 // ✅ Computed para verificar se está carregando
 const isLoading = computed(() => userStore.authLoading)
 
-// Determina se deve usar layout mobile (para garçom e caixa)
+// ✅ NOVO: Detectar se é garçom (layout especial sem nada)
+const isGarcom = computed(() => {
+  if (!userStore.isAuthenticated) return false
+  return userStore.profile?.role === 'garcom'
+})
+
+// Determina se deve usar layout mobile (SOMENTE CAIXA agora)
 const useMobileLayout = computed(() => {
   if (!userStore.isAuthenticated) return false
   const role = userStore.profile?.role
-  return role === 'garcom' || role === 'caixa'
+  return role === 'caixa' // ✅ REMOVIDO garçom
 })
 
 // Determina se é gerente (layout sem sidebar)
@@ -124,11 +138,11 @@ const isGerente = computed(() => {
 
 // Determina se a página atual precisa ser full-width (sem padding)
 const isFullWidthPage = computed(() => {
-  const fullWidthRoutes = ['qr-codes', 'qr-generator', 'home', 'dashboard']
+  const fullWidthRoutes = ['qr-codes', 'qr-generator', 'home', 'dashboard', 'dashboard-garcom']
   return fullWidthRoutes.includes(route.name)
 })
 
-// ✅ NOVO: Função de emergência para recarregar
+// ✅ Função de emergência para recarregar
 function forceReload() {
   localStorage.clear()
   sessionStorage.clear()
@@ -172,7 +186,7 @@ function forceReload() {
   color: #6b7280;
 }
 
-/* ✅ NOVO: Botão de emergência */
+/* ✅ Botão de emergência */
 .emergency-button {
   margin-top: 2rem;
   padding: 0.75rem 1.5rem;
@@ -191,7 +205,7 @@ function forceReload() {
   box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
 }
 
-/* ==================== BLANK LAYOUT (Login) ==================== */
+/* ==================== BLANK LAYOUT (Login, Cliente) ==================== */
 .blank-layout {
   display: flex;
   align-items: center;
@@ -200,7 +214,21 @@ function forceReload() {
   width: 100%;
 }
 
-/* ==================== MOBILE LAYOUT (Garçom/Caixa) ==================== */
+/* ==================== ✅ LAYOUT GARÇOM (SEM NADA) ==================== */
+.garcom-layout {
+  min-height: 100vh;
+  width: 100%;
+  background: #f5f7fa;
+}
+
+.garcom-content {
+  width: 100%;
+  min-height: 100vh;
+  /* Sem padding, sem margin, sem header, sem menu */
+  /* O DashboardGarcom.vue e PDVView controlarão seu próprio layout */
+}
+
+/* ==================== MOBILE LAYOUT (Caixa) ==================== */
 .mobile-layout {
   min-height: 100vh;
   width: 100%;
@@ -304,6 +332,11 @@ function forceReload() {
   .mobile-content {
     padding-top: 70px;
   }
+
+  /* Garçom layout - mantém limpo */
+  .garcom-layout {
+    /* Sem alterações no mobile */
+  }
 }
 
 /* Para telas muito pequenas */
@@ -315,6 +348,11 @@ function forceReload() {
 
   .desktop-layout .main-content:not(.no-padding) {
     padding: 0.5rem;
+  }
+
+  /* Garçom layout - continua limpo */
+  .garcom-content {
+    padding: 0;
   }
 }
 </style>
