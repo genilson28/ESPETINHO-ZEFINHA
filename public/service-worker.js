@@ -1,9 +1,8 @@
 // ========================================
-// SERVICE WORKER CORRIGIDO
-// Cache First para assets, Network First para HTML/JS
+// SERVICE WORKER CORRIGIDO - SEM ERROS
 // ========================================
 
-const CACHE_NAME = 'zefinha-cache-v5' // Incremente a versão!
+const CACHE_NAME = 'zefinha-cache-v5' // ← Mudei de v4 para v5
 
 const urlsToCache = [
   '/',
@@ -26,7 +25,6 @@ self.addEventListener('install', event => {
     })
   )
   
-  // Força o novo SW a ativar imediatamente
   self.skipWaiting()
 })
 
@@ -47,7 +45,6 @@ self.addEventListener('activate', event => {
         })
       )
     ).then(() => {
-      // Assume controle de todas as páginas imediatamente
       return self.clients.claim()
     })
   )
@@ -58,6 +55,13 @@ self.addEventListener('activate', event => {
 // ========================================
 self.addEventListener('fetch', event => {
   const { request } = event
+  
+  // ⚠️ IMPORTANTE: Ignora requisições POST, PUT, DELETE
+  // Cache só funciona com GET
+  if (request.method !== 'GET') {
+    return // Deixa passar direto para a rede
+  }
+  
   const url = new URL(request.url)
   
   // Para HTML e JS: NETWORK FIRST (sempre tenta buscar versão nova)
@@ -70,11 +74,13 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request)
         .then(response => {
-          // Atualiza o cache com a versão nova
-          const responseToCache = response.clone()
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(request, responseToCache)
-          })
+          // Só faz cache de respostas OK
+          if (response && response.status === 200 && response.type === 'basic') {
+            const responseToCache = response.clone()
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(request, responseToCache)
+            })
+          }
           return response
         })
         .catch(() => {
@@ -93,7 +99,8 @@ self.addEventListener('fetch', event => {
       }
       
       return fetch(request).then(response => {
-        if (response && response.status === 200) {
+        // Só faz cache de respostas OK
+        if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone()
           caches.open(CACHE_NAME).then(cache => {
             cache.put(request, responseToCache)
