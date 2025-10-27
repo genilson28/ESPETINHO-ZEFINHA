@@ -77,7 +77,7 @@
             <TrendingUp :size="24" />
           </div>
           <div class="stat-info">
-            <p class="stat-label">Produtos em Destaque</p>
+            <p class="stat-label">Produtos Disponiveis</p>
             <p class="stat-value">{{ featuredProductsCount }}</p>
           </div>
         </div>
@@ -165,7 +165,7 @@
                   
                   <div class="product-mini-info">
                     <p class="product-mini-name">{{ product.nome }}</p>
-                    <p class="product-mini-price">R$ {{ formatPrice(product.preco_venda) }}</p>
+                    <p class="product-mini-price">R$ {{ formatPrice(product.preco) }}</p>
                   </div>
 
                   <div class="product-mini-badges">
@@ -365,7 +365,7 @@ export default {
       return this.products.filter(p => !p.ativo).length
     },
     featuredProductsCount() {
-      return this.products.filter(p => p.destaque).length
+      return this.products.filter(p => p.disponivel).length
     }
   },
   mounted() {
@@ -388,7 +388,7 @@ export default {
 
         // Carregar produtos
         const { data: productsData, error: productsError } = await supabase
-          .from(TABLES.PRODUTOS)
+          .from('pwa_produtos') // <- alterado para a sua tabela correta
           .select('*')
           .order('nome', { ascending: true })
 
