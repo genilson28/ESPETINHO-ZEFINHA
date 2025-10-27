@@ -8,7 +8,6 @@ import { ShoppingCart, Plus, Search, X, Utensils, Coffee, ChefHat, Package, Minu
 import { supabase, TABLES } from '@/services/supabase'
 import { syncService } from '@/services/syncService'
 
-
 const router = useRouter()
 const route = useRoute()
 const cartStore = useCartStore()
@@ -265,8 +264,6 @@ async function fetchProducts() {
   }
 }
 
-
-
 async function fetchTables() {
   try {
     const { data, error } = await supabase.from(TABLES.MESAS).select('*').order('numero')
@@ -290,8 +287,8 @@ async function fetchTables() {
           
           <div class="header-brand">
             <div class="logo-pro">
-  <img src="/logo.png" alt="Point da Zefinha" class="logo-image" />
-</div>
+              <img src="/logo.png" alt="Point da Zefinha" class="logo-image" />
+            </div>
             <div class="brand-info">
               <h1 class="brand-title">Point da Zefinha</h1>
               <div class="brand-meta">
@@ -568,7 +565,6 @@ async function fetchTables() {
   </div>
 </template>
 
-
 <style scoped>
 * { 
   box-sizing: border-box; 
@@ -576,15 +572,7 @@ async function fetchTables() {
   padding: 0; 
 }
 
-/* Garantir que html e body ocupem 100% */
-:global(html), :global(body), :global(#app) {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
-
-/* Container Principal */
+/* Container Principal - Sem rolagem */
 .pdv-professional {
   display: flex;
   flex-direction: column;
@@ -593,12 +581,6 @@ async function fetchTables() {
   background: #f5f5f5;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   overflow: hidden;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100vw;
 }
 
 /* Header Profissional */
@@ -607,11 +589,13 @@ async function fetchTables() {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
   border-bottom: 1px solid #e0e0e0;
+  height: 90px;
 }
 
 .header-container {
+  height: 100%;
   max-width: 100%;
-  padding: 1.25rem 2rem;
+  padding: 0 2rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -659,8 +643,11 @@ async function fetchTables() {
   border: 1px solid #e0e0e0;
 }
 
-.logo-icon {
-  font-size: 1.75rem;
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
 }
 
 .brand-info {
@@ -774,20 +761,21 @@ async function fetchTables() {
   box-shadow: 0 2px 8px rgba(211, 47, 47, 0.3);
 }
 
-/* Conteúdo Principal */
+/* Conteúdo Principal - Sem rolagem */
 .main-content {
   display: flex;
   flex: 1;
   overflow: hidden;
+  height: calc(100vh - 90px);
 }
 
-/* Seção de Produtos */
+/* Seção de Produtos - Sem rolagem interna */
 .products-section {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
-  gap: 1.25rem;
+  padding: 1rem;
+  gap: 1rem;
   overflow: hidden;
   background: #f5f5f5;
 }
@@ -796,6 +784,7 @@ async function fetchTables() {
   position: relative;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .search-icon {
@@ -846,6 +835,7 @@ async function fetchTables() {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .category-btn {
@@ -875,28 +865,12 @@ async function fetchTables() {
   border-color: #333;
 }
 
+/* Grid de produtos - Sem rolagem */
 .products-grid-wrapper {
   flex: 1;
-  overflow-y: auto;
-  padding-right: 0.5rem;
-}
-
-.products-grid-wrapper::-webkit-scrollbar {
-  width: 8px;
-}
-
-.products-grid-wrapper::-webkit-scrollbar-track {
-  background: #e0e0e0;
-  border-radius: 4px;
-}
-
-.products-grid-wrapper::-webkit-scrollbar-thumb {
-  background: #999;
-  border-radius: 4px;
-}
-
-.products-grid-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #666;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .empty-products {
@@ -904,26 +878,30 @@ async function fetchTables() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4rem 0;
+  padding: 2rem 0;
   color: #999;
   gap: 1rem;
+  height: 100%;
 }
 
 .products-grid-pro {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 1rem;
-  padding-bottom: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 0.75rem;
+  height: 100%;
+  overflow: hidden;
+  align-content: start;
 }
 
 .product-card-pro {
   background: white;
-  padding: 1.25rem;
+  padding: 1rem;
   border-radius: 8px;
   border: 1px solid #e0e0e0;
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   transition: all 0.2s ease;
+  height: fit-content;
 }
 
 .product-card-pro:hover {
@@ -935,9 +913,10 @@ async function fetchTables() {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
 .product-image-wrapper {
-  width: 64px;
-  height: 64px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
@@ -961,7 +940,9 @@ async function fetchTables() {
   justify-content: center;
   flex-shrink: 0;
   color: white;
-}.product-icon-wrapper.icon-espetinho {
+}
+
+.product-icon-wrapper.icon-espetinho {
   background: #fff3e0;
   color: #e65100;
 }
@@ -981,25 +962,25 @@ async function fetchTables() {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .product-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .product-name-pro {
-  font-size: 1.0625rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #333;
   line-height: 1.3;
 }
 
 .product-price-pro {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #333;
   white-space: nowrap;
@@ -1008,8 +989,12 @@ async function fetchTables() {
 
 .product-desc-pro {
   color: #666;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .product-footer {
@@ -1017,12 +1002,12 @@ async function fetchTables() {
   justify-content: space-between;
   align-items: center;
   margin-top: auto;
-  gap: 1rem;
-  padding-top: 0.5rem;
+  gap: 0.75rem;
+  padding-top: 0.4rem;
 }
 
 .product-stock-pro {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #666;
   font-weight: 600;
   text-transform: uppercase;
@@ -1036,22 +1021,22 @@ async function fetchTables() {
 .product-actions-pro {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .quantity-controls-pro {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   background: #f5f5f5;
-  padding: 0.25rem;
+  padding: 0.2rem;
   border-radius: 6px;
   border: 1px solid #e0e0e0;
 }
 
 .qty-btn-pro {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 4px;
   background: white;
   border: 1px solid #e0e0e0;
@@ -1071,15 +1056,15 @@ async function fetchTables() {
 
 .qty-display-pro {
   font-weight: 700;
-  min-width: 24px;
+  min-width: 22px;
   text-align: center;
   color: #333;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .add-btn-pro {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 6px;
   background: #333;
   color: white;
@@ -1110,11 +1095,12 @@ async function fetchTables() {
   gap: 1rem;
   padding-top: 1rem;
   border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
 }
 
 .pagination-btn-pro {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 6px;
   background: white;
   border: 1px solid #e0e0e0;
@@ -1138,17 +1124,17 @@ async function fetchTables() {
 }
 
 .pagination-info {
-  padding: 0.75rem 1.5rem;
+  padding: 0.6rem 1.2rem;
   border-radius: 6px;
   background: #333;
   color: white;
   font-weight: 700;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
-/* Seção do Carrinho */
+/* Seção do Carrinho - Sem rolagem */
 .cart-section-pro {
-  width: 420px;
+  width: 380px;
   flex-shrink: 0;
   border-left: 1px solid #e0e0e0;
   background: white;
@@ -1162,7 +1148,7 @@ async function fetchTables() {
 }
 
 .cart-header-pro {
-  padding: 1.25rem 1.5rem;
+  padding: 1rem 1.25rem;
   background: #fafafa;
   border-bottom: 1px solid #e0e0e0;
   display: flex;
@@ -1173,42 +1159,27 @@ async function fetchTables() {
 
 .cart-title-pro {
   color: #333;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
 }
 
 .cart-count-badge {
-  padding: 0.4rem 0.875rem;
+  padding: 0.3rem 0.7rem;
   border-radius: 6px;
   background: #333;
   color: white;
   font-weight: 700;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
+/* Itens do carrinho - Sem rolagem */
 .cart-items-wrapper {
   flex: 1;
-  overflow-y: auto;
-  padding: 1rem;
+  overflow: hidden;
+  padding: 0.75rem;
   background: white;
-}
-
-.cart-items-wrapper::-webkit-scrollbar {
-  width: 8px;
-}
-
-.cart-items-wrapper::-webkit-scrollbar-track {
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.cart-items-wrapper::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
-  border-radius: 4px;
-}
-
-.cart-items-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  display: flex;
+  flex-direction: column;
 }
 
 .empty-cart-pro {
@@ -1216,25 +1187,28 @@ async function fetchTables() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1rem;
+  padding: 2rem 1rem;
   color: #d0d0d0;
   gap: 1rem;
+  height: 100%;
 }
 
 .cart-items-pro {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
+  flex: 1;
+  overflow: hidden;
 }
 
 .cart-item-pro {
   background: #fafafa;
-  padding: 0.4rem 0.5rem;
+  padding: 0.35rem 0.4rem;
   border-radius: 5px;
   border: 1px solid #f0f0f0;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
   transition: all 0.2s ease;
 }
 
@@ -1257,16 +1231,16 @@ async function fetchTables() {
 .cart-item-name {
   font-weight: 700;
   color: #333;
-  font-size: 0.6875rem;
-  margin-bottom: 0.2rem;
+  font-size: 0.65rem;
+  margin-bottom: 0.15rem;
   line-height: 1.2;
 }
 
 .cart-item-prices {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.625rem;
+  gap: 0.2rem;
+  font-size: 0.6rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1294,13 +1268,13 @@ async function fetchTables() {
 .cart-item-actions {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .cart-qty-controls {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   background: white;
   padding: 0.1rem;
   border-radius: 4px;
@@ -1309,8 +1283,8 @@ async function fetchTables() {
 }
 
 .cart-qty-btn {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 3px;
   background: #f5f5f5;
   border: none;
@@ -1332,12 +1306,12 @@ async function fetchTables() {
   text-align: center;
   font-weight: 700;
   color: #333;
-  font-size: 0.625rem;
+  font-size: 0.6rem;
 }
 
 .cart-delete-btn {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 4px;
   background: #ffebee;
   border: 1px solid #ffcdd2;
@@ -1358,15 +1332,16 @@ async function fetchTables() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
   border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
 }
 
 .cart-page-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
   background: #333;
   color: white;
@@ -1388,7 +1363,7 @@ async function fetchTables() {
 }
 
 .cart-page-info {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: #666;
 }
@@ -1396,36 +1371,36 @@ async function fetchTables() {
 .discount-section-pro,
 .payment-section-pro,
 .summary-section-pro {
-  padding: 0.625rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   border-top: 1px solid #e0e0e0;
   background: white;
   flex-shrink: 0;
 }
 
 .section-title-pro {
-  font-size: 0.625rem;
+  font-size: 0.6rem;
   font-weight: 700;
   color: #666;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.3rem;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .discount-inputs {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .discount-select-pro {
-  width: 55px;
-  padding: 0.5rem;
+  width: 50px;
+  padding: 0.4rem;
   border: 1px solid #e0e0e0;
   border-radius: 5px;
   font-weight: 600;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   background: white;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1439,10 +1414,10 @@ async function fetchTables() {
 
 .discount-input-pro {
   flex: 1;
-  padding: 0.5rem;
+  padding: 0.4rem;
   border: 1px solid #e0e0e0;
   border-radius: 5px;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   transition: all 0.2s ease;
   color: #333;
 }
@@ -1456,23 +1431,23 @@ async function fetchTables() {
 .payment-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .payment-btn-pro {
-  padding: 0.4rem 0.5rem;
+  padding: 0.35rem 0.4rem;
   border: 1px solid #e0e0e0;
   border-radius: 5px;
   background: white;
   font-weight: 600;
-  font-size: 0.6875rem;
+  font-size: 0.65rem;
   cursor: pointer;
   transition: all 0.2s ease;
   color: #333;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
 }
 
 .payment-btn-pro:hover {
@@ -1494,9 +1469,9 @@ async function fetchTables() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   color: #666;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
 .summary-value {
@@ -1516,38 +1491,38 @@ async function fetchTables() {
 
 .summary-row.total-row {
   border-top: 1px solid #e0e0e0;
-  padding-top: 0.5rem;
-  margin-top: 0.25rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.875rem;
+  padding-top: 0.4rem;
+  margin-top: 0.2rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
   color: #333;
   font-weight: 700;
 }
 
 .total-value {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   color: #333;
   font-weight: 800;
 }
 
 .action-buttons-pro {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.6rem;
 }
 
 .btn-clear-pro,
 .btn-confirm-pro {
   flex: 1;
-  padding: 0.75rem;
+  padding: 0.6rem;
   border: none;
   border-radius: 6px;
   font-weight: 700;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
   transition: all 0.2s ease;
 }
 
@@ -1581,7 +1556,7 @@ async function fetchTables() {
 /* Responsivo */
 @media (max-width: 1400px) {
   .products-grid-pro {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   }
 }
 
@@ -1591,14 +1566,14 @@ async function fetchTables() {
   }
   
   .products-section {
-    height: 50vh;
+    height: 60vh;
   }
   
   .cart-section-pro {
     width: 100%;
     border-left: none;
     border-top: 1px solid #e0e0e0;
-    height: 50vh;
+    height: 40vh;
   }
   
   .header-container {
@@ -1612,10 +1587,6 @@ async function fetchTables() {
   .logo-pro {
     width: 48px;
     height: 48px;
-  }
-  
-  .logo-icon {
-    font-size: 1.5rem;
   }
 }
 
@@ -1638,7 +1609,7 @@ async function fetchTables() {
   }
   
   .products-section {
-    padding: 1rem;
+    padding: 0.75rem;
   }
   
   .categories-tabs {
@@ -1663,13 +1634,5 @@ async function fetchTables() {
   .products-grid-pro {
     grid-template-columns: 1fr;
   }
- 
-}
- .logo-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 8px;
 }
 </style>
-
