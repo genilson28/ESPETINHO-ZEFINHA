@@ -1,8 +1,8 @@
 // ========================================
-// SERVICE WORKER CORRIGIDO - SEM ERROS
+// SERVICE WORKER SIMPLES - VOLTANDO PARA V4
 // ========================================
 
-const CACHE_NAME = 'zefinha-cache-v5' // ← Mudei de v4 para v5
+const CACHE_NAME = 'zefinha-cache-v6' // Incrementei para forçar limpeza do v5
 
 const urlsToCache = [
   '/',
@@ -14,7 +14,7 @@ const urlsToCache = [
 ]
 
 // ========================================
-// INSTALAÇÃO
+// INSTALAÇÃO - SIMPLES
 // ========================================
 self.addEventListener('install', event => {
   console.log('📦 Instalando Service Worker...', CACHE_NAME)
@@ -25,11 +25,11 @@ self.addEventListener('install', event => {
     })
   )
   
-  self.skipWaiting()
+  // ❌ REMOVIDO: self.skipWaiting() 
 })
 
 // ========================================
-// ATIVAÇÃO
+// ATIVAÇÃO - SIMPLES
 // ========================================
 self.addEventListener('activate', event => {
   console.log('✅ Ativando Service Worker...', CACHE_NAME)
@@ -44,66 +44,33 @@ self.addEventListener('activate', event => {
           }
         })
       )
-    ).then(() => {
-      return self.clients.claim()
-    })
+    )
   )
+  
+  // ❌ REMOVIDO: self.clients.claim()
 })
 
 // ========================================
-// FETCH - ESTRATÉGIA INTELIGENTE
+// FETCH - CACHE FIRST (mais rápido)
+// SÓ CORRIGIDO O ERRO DE POST
 // ========================================
 self.addEventListener('fetch', event => {
-  const { request } = event
-  
-  // ⚠️ IMPORTANTE: Ignora requisições POST, PUT, DELETE
-  // Cache só funciona com GET
-  if (request.method !== 'GET') {
-    return // Deixa passar direto para a rede
+  // ⚠️ CORREÇÃO: Ignora requisições POST (upload de imagem)
+  if (event.request.method !== 'GET') {
+    return // Deixa passar direto
   }
   
-  const url = new URL(request.url)
-  
-  // Para HTML e JS: NETWORK FIRST (sempre tenta buscar versão nova)
-  if (
-    request.mode === 'navigate' || 
-    request.destination === 'document' ||
-    url.pathname.endsWith('.html') ||
-    url.pathname.endsWith('.js')
-  ) {
-    event.respondWith(
-      fetch(request)
-        .then(response => {
-          // Só faz cache de respostas OK
-          if (response && response.status === 200 && response.type === 'basic') {
-            const responseToCache = response.clone()
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(request, responseToCache)
-            })
-          }
-          return response
-        })
-        .catch(() => {
-          // Se não tem internet, usa o cache
-          return caches.match(request)
-        })
-    )
-    return
-  }
-  
-  // Para CSS, imagens, etc: CACHE FIRST (mais rápido)
   event.respondWith(
-    caches.match(request).then(response => {
+    caches.match(event.request).then(response => {
       if (response) {
         return response
       }
       
-      return fetch(request).then(response => {
-        // Só faz cache de respostas OK
-        if (response && response.status === 200 && response.type === 'basic') {
+      return fetch(event.request).then(response => {
+        if (response && response.status === 200) {
           const responseToCache = response.clone()
           caches.open(CACHE_NAME).then(cache => {
-            cache.put(request, responseToCache)
+            cache.put(event.request, responseToCache)
           })
         }
         return response
@@ -112,4 +79,4 @@ self.addEventListener('fetch', event => {
   )
 })
 
-console.log('🚀 Service Worker carregado:', CACHE_NAME)
+console.log('🚀 Service Worker carregado (modo simples):', CACHE_NAME)
