@@ -33,6 +33,11 @@ import CloseOrderView from '@/views/staff/CloseOrderView.vue'
 import QRCodeGenerator from '@/views/staff/QRCodeGenerator.vue'
 import StaffOrdersView from '@/views/staff/StaffOrdersView.vue'
 
+// ============================================
+// ✅ NOVO - DASHBOARD DO GARÇOM
+// ============================================
+import DashboardGarcom from '@/views/DashboardGarcom.vue'
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -131,39 +136,54 @@ const router = createRouter({
     },
 
     // ============================================
+    // ✅ DASHBOARD GARÇOM (/dashboard-garcom)
+    // ============================================
+    { 
+      path: '/dashboard-garcom', 
+      name: 'dashboard-garcom', 
+      component: DashboardGarcom, 
+      meta: { 
+        requiresAuth: true,
+        allowedRoles: ['garcom'],
+        hideMenu: true // ✅ Flag para esconder menu lateral
+      } 
+    },
+
+    // ============================================
     // ROTAS DE MESAS E PEDIDOS
     // ============================================
 
-    // Visualizar Mesas
+    // Visualizar Mesas (Admin, Gerente, Caixa)
     { 
       path: '/tables', 
       name: 'tables', 
       component: TablesView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'garcom', 'caixa']
+        allowedRoles: ['admin', 'gerente', 'caixa','garcom'] 
       } 
     },
 
-    // PDV - Ponto de Venda
+    // PDV - Ponto de Venda (✅ Garçom pode acessar)
     { 
       path: '/pdv', 
       name: 'pdv', 
       component: PDVView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'garcom', 'caixa']
+        allowedRoles: ['admin', 'gerente', 'garcom', 'caixa'],
+        hideMenu: true // ✅ Esconde menu para garçom
       }
     },
 
-    // Fechar Pedido/Comanda
+    // Fechar Pedido/Comanda (✅ GARÇOM REMOVIDO)
     { 
       path: '/close-order/:idMesa', 
       name: 'closeOrder', 
       component: CloseOrderView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['caixa', 'admin', 'gerente']
+        allowedRoles: ['caixa', 'admin', 'gerente'] // ✅ Sem garcom
       }
     },
 
@@ -174,22 +194,22 @@ const router = createRouter({
       component: OrdersView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'garcom', 'caixa']
+        allowedRoles: ['admin', 'gerente', 'caixa'] // ✅ REMOVIDO garcom
       } 
     },
 
-    // ✅ NOVO: Pedidos Ativos (Staff)
+    // Pedidos Ativos (Staff)
     { 
       path: '/staff/orders', 
       name: 'staff-orders', 
       component: StaffOrdersView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'garcom', 'caixa']
+        allowedRoles: ['admin', 'gerente', 'caixa'] // ✅ REMOVIDO garcom
       } 
     },
 
-    // ✅ NOVO: Gerador de QR Codes
+    // Gerador de QR Codes
     { 
       path: '/qr-codes', 
       name: 'qr-generator', 
@@ -273,13 +293,12 @@ const router = createRouter({
     },
 
     // ============================================
-    // ROTA 404 - CATCH ALL (Opcional)
+    // ROTA 404 - CATCH ALL
     // ============================================
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       redirect: to => {
-        // Redireciona para home baseado no status de autenticação
         const userStore = useUserStore()
         if (userStore.isAuthenticated) {
           return getHomeRoute(userStore.profile?.role)
@@ -291,20 +310,19 @@ const router = createRouter({
 })
 
 // ============================================
-// ROUTER GUARD - SIMPLIFICADO
+// ROUTER GUARD
 // ============================================
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   
   // ✅ AGUARDAR auth terminar (máximo 15 segundos)
   let attempts = 0
-  const maxAttempts = 150 // 15 segundos (150 * 100ms)
+  const maxAttempts = 150
   
   while (userStore.authLoading && attempts < maxAttempts) {
     await new Promise(resolve => setTimeout(resolve, 100))
     attempts++
     
-    // Log a cada 5 segundos
     if (attempts % 50 === 0) {
       console.log(`⏳ Aguardando auth... (${attempts / 10}s)`)
     }
@@ -321,7 +339,6 @@ router.beforeEach(async (to, from, next) => {
   // ROTAS PÚBLICAS
   // ============================================
   if (!requiresAuth) {
-    // Se está autenticado e tenta acessar login, redireciona para home apropriado
     if (to.path === '/login' && userStore.isAuthenticated) {
       return next(getHomeRoute(userStore.profile?.role))
     }
@@ -354,10 +371,9 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // ============================================
-  // REGISTRAR LOG (Opcional - em background)
+  // REGISTRAR LOG
   // ============================================
   if (userStore.logAction && typeof userStore.logAction === 'function') {
-    // Executar em background sem bloquear navegação
     userStore.logAction('navigation', `Acessou: ${to.path}`).catch(err => {
       console.warn('⚠️ Erro ao registrar log de navegação:', err)
     })
@@ -367,7 +383,7 @@ router.beforeEach(async (to, from, next) => {
 })
 
 // ============================================
-// HELPER: Retorna rota home baseada no role
+// ✅ HELPER: Retorna rota home baseada no role
 // ============================================
 function getHomeRoute(role) {
   switch(role) {
@@ -376,6 +392,7 @@ function getHomeRoute(role) {
     case 'gerente':
       return '/dashboard-gerente'
     case 'garcom':
+      return '/dashboard-garcom' // ✅ NOVA ROTA
     case 'caixa':
       return '/tables'
     default:
