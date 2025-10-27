@@ -42,45 +42,28 @@ document.addEventListener('scroll', updateActivity)
 document.addEventListener('keypress', updateActivity)
 
 // ========================================
-// 🔄 RECONEXÃO AUTOMÁTICA
+// 🔄 RECONEXÃO AUTOMÁTICA (SIMPLIFICADA)
 // ========================================
-document.addEventListener('visibilitychange', async () => {
+document.addEventListener('visibilitychange', () => {
   const wasHidden = !isPageActive
   isPageActive = !document.hidden
   
   if (wasHidden && isPageActive) {
     console.log('📱 Página voltou a ficar ATIVA')
     
-    // Verifica quanto tempo ficou inativa
     const timeInactive = Date.now() - lastActivity
     console.log(`⏱️ Tempo inativo: ${Math.floor(timeInactive / 1000)}s`)
     
-    // Se ficou inativa por mais de 5 segundos, reconecta
-    if (timeInactive > 5000) {
-      console.log('🔄 Reconectando sistemas...')
-      
-      try {
-        // Tenta reconectar através da própria store
-        console.log('🔄 Reinicializando autenticação...')
-        await userStore.initAuth()
-        
-        // Verifica se ainda está autenticado
-        if (userStore.isAuthenticated) {
-          console.log('✅ Sessão válida:', userStore.profile?.email)
-          console.log('✅ Reconexão bem-sucedida!')
-        } else {
-          console.log('⚠️ Sem sessão ativa após reconexão')
-          router.push('/login')
-        }
-        
-      } catch (err) {
-        console.error('❌ Erro durante reconexão:', err)
-        // Se der erro, tenta recarregar a página
-        console.log('🔄 Tentando recarregar página...')
-        setTimeout(() => {
-          window.location.reload()
-        }, 1000)
-      }
+    // Se ficou muito tempo inativo (mais de 2 minutos), recarrega a página
+    if (timeInactive > 120000) {
+      console.log('🔄 Página ficou inativa por muito tempo, recarregando...')
+      window.location.reload()
+    } else if (timeInactive > 5000) {
+      // Se ficou pouco tempo (5s-2min), só verifica a sessão em background
+      console.log('🔍 Verificando sessão em background...')
+      userStore.initAuth().catch(err => {
+        console.error('❌ Erro ao verificar sessão:', err)
+      })
     }
     
     updateActivity()
@@ -102,6 +85,7 @@ window.addEventListener('unhandledrejection', (event) => {
 
 // ========================================
 // ⏰ MONITOR DE CONGELAMENTO (DEBUG)
+// Desativado em produção para melhor performance
 // ========================================
 if (import.meta.env.DEV) {
   setInterval(() => {
