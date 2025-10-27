@@ -3,7 +3,6 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import './assets/main.css'
-import { useUserStore } from '@/stores/user'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -11,9 +10,8 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-// Inicializa a store de usuário e o listener de autenticação
-const userStore = useUserStore(pinia)
-userStore.initAuth()
+// ✅ REMOVIDO: userStore.initAuth()
+// O router vai chamar initAuth() no momento certo!
 
 app.mount('#app')
 
