@@ -3,15 +3,23 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import './assets/main.css'
+import { useUserStore } from '@/stores/user'
 
 const app = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
-app.use(router)
 
-// ✅ REMOVIDO: userStore.initAuth()
-// O router vai chamar initAuth() no momento certo!
+// ✅ CRÍTICO: Inicializar auth ANTES de usar o router
+const userStore = useUserStore(pinia)
+
+// ✅ Iniciar auth de forma assíncrona (não bloqueia o mount)
+userStore.initAuth().catch(error => {
+  console.error('❌ Erro crítico ao inicializar auth:', error)
+})
+
+// ✅ Usar router DEPOIS de iniciar o auth
+app.use(router)
 
 app.mount('#app')
 
