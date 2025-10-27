@@ -4,9 +4,17 @@
     <OnlineStatus />
 
     <!-- TELA DE CARREGAMENTO -->
-    <div v-if="userStore.authLoading" class="loading-screen">
+    <div v-if="isLoading" class="loading-screen">
       <div class="loading-spinner"></div>
       <p>Carregando...</p>
+      <!-- ✅ NOVO: Botão de emergência se travar -->
+      <button 
+        v-if="showEmergencyButton" 
+        @click="forceReload" 
+        class="emergency-button"
+      >
+        Recarregar página
+      </button>
     </div>
 
     <!-- APLICATIVO (só aparece depois de carregar) -->
@@ -65,7 +73,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useRoute } from 'vue-router'
 import TheHeader from './components/TheHeader.vue'
@@ -75,6 +83,19 @@ import OnlineStatus from './components/OnlineStatus.vue'
 
 const userStore = useUserStore()
 const route = useRoute()
+const showEmergencyButton = ref(false)
+
+// ✅ NOVO: Mostrar botão de emergência após 10 segundos de loading
+onMounted(() => {
+  setTimeout(() => {
+    if (userStore.authLoading) {
+      showEmergencyButton.value = true
+    }
+  }, 10000)
+})
+
+// ✅ Computed para verificar se está carregando
+const isLoading = computed(() => userStore.authLoading)
 
 // Determina se deve usar layout mobile (para garçom e caixa)
 const useMobileLayout = computed(() => {
@@ -94,6 +115,13 @@ const isFullWidthPage = computed(() => {
   const fullWidthRoutes = ['qr-codes', 'qr-generator', 'home', 'dashboard']
   return fullWidthRoutes.includes(route.name)
 })
+
+// ✅ NOVO: Função de emergência para recarregar
+function forceReload() {
+  localStorage.clear()
+  sessionStorage.clear()
+  window.location.reload()
+}
 </script>
 
 <style scoped>
@@ -130,6 +158,25 @@ const isFullWidthPage = computed(() => {
 .loading-screen p {
   font-size: 1.2rem;
   color: #6b7280;
+}
+
+/* ✅ NOVO: Botão de emergência */
+.emergency-button {
+  margin-top: 2rem;
+  padding: 0.75rem 1.5rem;
+  background: #C41E3A;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.emergency-button:hover {
+  background: #a01828;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
 }
 
 /* ==================== BLANK LAYOUT (Login) ==================== */
