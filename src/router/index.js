@@ -291,22 +291,27 @@ const router = createRouter({
 })
 
 // ============================================
-// ROUTER GUARD - CORRIGIDO
+// ROUTER GUARD - SIMPLIFICADO
 // ============================================
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   
-  // ✅ AGUARDAR se auth ainda está carregando
+  // ✅ AGUARDAR auth terminar (máximo 15 segundos)
   let attempts = 0
-  const maxAttempts = 100 // 10 segundos (100 * 100ms)
+  const maxAttempts = 150 // 15 segundos (150 * 100ms)
   
   while (userStore.authLoading && attempts < maxAttempts) {
     await new Promise(resolve => setTimeout(resolve, 100))
     attempts++
+    
+    // Log a cada 5 segundos
+    if (attempts % 50 === 0) {
+      console.log(`⏳ Aguardando auth... (${attempts / 10}s)`)
+    }
   }
 
   if (attempts >= maxAttempts) {
-    console.error('⏰ Timeout ao aguardar auth (10s), continuando...')
+    console.error('⏰ Timeout ao aguardar auth (15s), continuando...')
   }
 
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
