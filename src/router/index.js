@@ -296,26 +296,17 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   
-  // ✅ CRÍTICO: Inicializar auth APENAS UMA VEZ na primeira navegação
-  if (!userStore.authInitialized && !userStore.authLoading) {
-    console.log('⏳ Aguardando inicialização do auth...')
-    try {
-      await userStore.initAuth()
-    } catch (error) {
-      console.error('❌ Erro ao inicializar auth no router:', error)
-      // Se falhar, permite continuar para não travar o app
-    }
-  }
-
-  // ✅ AGUARDAR se auth ainda está carregando (chamado por outro lugar)
+  // ✅ AGUARDAR se auth ainda está carregando
   let attempts = 0
-  while (userStore.authLoading && attempts < 50) {
+  const maxAttempts = 100 // 10 segundos (100 * 100ms)
+  
+  while (userStore.authLoading && attempts < maxAttempts) {
     await new Promise(resolve => setTimeout(resolve, 100))
     attempts++
   }
 
-  if (attempts >= 50) {
-    console.error('⏰ Timeout ao aguardar auth, continuando...')
+  if (attempts >= maxAttempts) {
+    console.error('⏰ Timeout ao aguardar auth (10s), continuando...')
   }
 
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
