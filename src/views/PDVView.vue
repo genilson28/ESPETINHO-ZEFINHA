@@ -8,6 +8,7 @@ import { ShoppingCart, Plus, Search, X, Utensils, Coffee, ChefHat, Package, Minu
 import { supabase, TABLES } from '@/services/supabase'
 import { syncService } from '@/services/syncService'
 
+
 const router = useRouter()
 const route = useRoute()
 const cartStore = useCartStore()
@@ -264,6 +265,8 @@ async function fetchProducts() {
   }
 }
 
+
+
 async function fetchTables() {
   try {
     const { data, error } = await supabase.from(TABLES.MESAS).select('*').order('numero')
@@ -287,8 +290,8 @@ async function fetchTables() {
           
           <div class="header-brand">
             <div class="logo-pro">
-              <div class="logo-icon">🍢</div>
-            </div>
+  <img src="/logo.png" alt="Point da Zefinha" class="logo-image" />
+</div>
             <div class="brand-info">
               <h1 class="brand-title">Point da Zefinha</h1>
               <div class="brand-meta">
@@ -367,11 +370,14 @@ async function fetchTables() {
               class="product-card-pro"
               :class="{ 'out-of-stock': product.estoque_atual <= 0 }">
               
-              <div class="product-icon-wrapper" :class="`icon-${product.categoria}`">
-                <Utensils v-if="getCategoryIcon(product.categoria) === 'utensils'" :size="32" />
-                <Coffee v-else-if="getCategoryIcon(product.categoria) === 'coffee'" :size="32" />
-                <ChefHat v-else-if="getCategoryIcon(product.categoria) === 'chef-hat'" :size="32" />
-                <Package v-else :size="32" />
+              <div class="product-image-wrapper">
+                <img v-if="product.imagem_url" :src="product.imagem_url" :alt="product.nome" class="product-image-pro" />
+                <div v-else class="product-icon-wrapper" :class="`icon-${product.categoria}`">
+                  <Utensils v-if="getCategoryIcon(product.categoria) === 'utensils'" :size="32" />
+                  <Coffee v-else-if="getCategoryIcon(product.categoria) === 'coffee'" :size="32" />
+                  <ChefHat v-else-if="getCategoryIcon(product.categoria) === 'chef-hat'" :size="32" />
+                  <Package v-else :size="32" />
+                </div>
               </div>
 
               <div class="product-details">
@@ -562,6 +568,7 @@ async function fetchTables() {
   </div>
 </template>
 
+
 <style scoped>
 * { 
   box-sizing: border-box; 
@@ -569,14 +576,29 @@ async function fetchTables() {
   padding: 0; 
 }
 
+/* Garantir que html e body ocupem 100% */
+:global(html), :global(body), :global(#app) {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 /* Container Principal */
 .pdv-professional {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  max-height: 100vh;
   background: #f5f5f5;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
 }
 
 /* Header Profissional */
@@ -913,18 +935,33 @@ async function fetchTables() {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
-.product-icon-wrapper {
+.product-image-wrapper {
   width: 64px;
   height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+  border: 1px solid #e0e0e0;
+}
+
+.product-image-pro {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.product-icon-wrapper {
+  width: 100%;
+  height: 100%;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-}
-
-.product-icon-wrapper.icon-espetinho {
+  color: white;
+}.product-icon-wrapper.icon-espetinho {
   background: #fff3e0;
   color: #e65100;
 }
@@ -1626,6 +1663,13 @@ async function fetchTables() {
   .products-grid-pro {
     grid-template-columns: 1fr;
   }
+ 
+}
+ .logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
 }
 </style>
 
