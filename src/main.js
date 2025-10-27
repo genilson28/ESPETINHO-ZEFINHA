@@ -18,33 +18,10 @@ userStore.initAuth()
 app.mount('#app')
 
 // ========================================
-// 🔄 SERVICE WORKER COM RECONEXÃO
+// 🔄 SERVICE WORKER (WORKBOX)
+// Já está sendo registrado automaticamente pelo Vite
 // ========================================
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/service-worker.js')
-      .then(registration => {
-        console.log('✅ Service Worker registrado')
-        
-        // Detectar atualizações do SW
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing
-          console.log('🔄 Nova versão do SW encontrada')
-          
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'activated') {
-              console.log('🎉 Nova versão ativada! Recarregue para atualizar.')
-            }
-          })
-        })
-      })
-      .catch(error => {
-        console.error('❌ Erro ao registrar Service Worker:', error)
-      })
-  })
-}
+console.log('✅ Workbox Service Worker será registrado automaticamente')
 
 // ========================================
 // 🔍 SISTEMA DE DIAGNÓSTICO E RECONEXÃO
