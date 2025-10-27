@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useNavigationStore } from '@/stores/navigation'
 import { useUserStore } from '@/stores/user'
-import { ShoppingCart, Plus, Search, X, Utensils, Coffee, ChefHat, Package, Minus, Trash2, ArrowLeft, Check, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-vue-next'
+import { ShoppingCart, Plus, Search, X, Utensils, Coffee, ChefHat, Package, Minus, Trash2, ArrowLeft, Check, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Sparkles, Clock, Banknote, CreditCard, Smartphone } from 'lucide-vue-next'
 import { supabase, TABLES } from '@/services/supabase'
 import { syncService } from '@/services/syncService'
 
@@ -24,13 +24,13 @@ const selectedCategory = ref('all')
 const currentPage = ref(1)
 const productsPerPage = 6
 const currentCartPage = ref(1)
-const itemsPerCartPage = 6
+const itemsPerCartPage = 4
 
 const paymentMethods = [
-  { id: 'dinheiro', name: 'Dinheiro' },
-  { id: 'debito', name: 'Débito' },
-  { id: 'credito', name: 'Crédito' },
-  { id: 'pix', name: 'PIX' }
+  { id: 'dinheiro', name: 'Dinheiro', icon: 'banknote' },
+  { id: 'debito', name: 'Débito', icon: 'credit-card' },
+  { id: 'credito', name: 'Crédito', icon: 'credit-card' },
+  { id: 'pix', name: 'PIX', icon: 'smartphone' }
 ]
 
 onMounted(async () => {
@@ -81,7 +81,11 @@ async function updateTableStatusAvailable() {
 
 const categories = computed(() => {
   const cats = ['all', ...new Set(products.value.map(p => p.categoria))]
-  return cats.filter(cat => cat)
+  return cats.filter(cat => cat).map(cat => ({
+    id: cat,
+    name: getCategoryName(cat),
+    icon: cat === 'espetinho' ? 'utensils' : cat === 'bebida' ? 'coffee' : cat === 'acompanhamento' ? 'chef-hat' : 'package'
+  }))
 })
 
 const filteredProducts = computed(() => {
@@ -123,6 +127,13 @@ const getTableNumber = (tableId) => {
 const getProductQuantity = (productId) => {
   const item = cartStore.cartItems.find(item => item.product.id === productId)
   return item ? item.quantity : 0
+}
+
+const getCategoryIcon = (category) => {
+  if (category === 'espetinho') return 'utensils'
+  if (category === 'bebida') return 'coffee'
+  if (category === 'acompanhamento') return 'chef-hat'
+  return 'package'
 }
 
 const goBack = () => {
@@ -265,934 +276,1356 @@ async function fetchTables() {
 </script>
 
 <template>
-  <div class="pdv-container">
-    <!-- PRODUTOS -->
-    <div class="products-section">
-      <!-- ✅ HEADER CORRIGIDO - AGORA APARECE O NOME -->
-      <div class="pdv-header">
-        <div class="header-content">
-          <button @click="goBack" class="btn-back" title="Voltar">
+  <div class="pdv-professional">
+    <!-- Header Profissional -->
+    <div class="professional-header">
+      <div class="header-container">
+        <div class="header-left">
+          <button @click="goBack" class="btn-back-pro">
             <ArrowLeft :size="20" />
           </button>
-          <h1 class="pdv-title">
-            <ShoppingCart :size="24" />
-            PDV - Mesa {{ getTableNumber(tableId) }}
-          </h1>
-        </div>
-      </div>
-
-      <!-- Search -->
-      <div class="search-section">
-        <div class="search-input-wrapper">
-          <Search class="search-icon" :size="18" />
-          <input 
-            v-model="searchQuery" 
-            type="text" 
-            placeholder="Buscar produto..." 
-            class="search-input"
-          />
-          <button v-if="searchQuery" @click="searchQuery = ''" class="clear-search">
-            <X :size="18" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Categories -->
-      <div class="category-tabs">
-        <button 
-          v-for="cat in categories" 
-          :key="cat"
-          @click="selectedCategory = cat; currentPage = 1"
-          class="category-tab"
-          :class="{ active: selectedCategory === cat }">
-          {{ getCategoryName(cat) }}
-        </button>
-      </div>
-
-      <!-- Products -->
-      <div class="products-grid">
-        <div v-if="paginatedProducts.length === 0" class="empty-state">
-          <Package class="empty-icon" :size="48" />
-          <p>Nenhum produto encontrado</p>
-        </div>
-
-        <div 
-          v-for="product in paginatedProducts" 
-          :key="product.id"
-          class="product-card"
-          :class="{ 'out-of-stock': product.estoque_atual <= 0 }">
           
-          <div class="product-image">
-            <Utensils v-if="product.categoria === 'espetinho'" :size="28" />
-            <Coffee v-else-if="product.categoria === 'bebida'" :size="28" />
-            <ChefHat v-else :size="28" />
-          </div>
-
-          <div class="product-info">
-            <div class="product-name">{{ product.nome }}</div>
-            <div class="product-description">{{ product.descricao || 'Sem descrição' }}</div>
-            <div class="product-price">R$ {{ formatPrice(product.preco) }}</div>
-            <div class="product-stock">
-              {{ product.estoque_atual > 0 ? `Estoque: ${product.estoque_atual}` : 'Sem estoque' }}
+          <div class="header-brand">
+            <div class="logo-pro">
+              <div class="logo-icon">🍢</div>
             </div>
-          </div>
-
-          <div class="product-actions">
-            <div v-if="getProductQuantity(product.id) > 0" class="quantity-controls">
-              <button @click="decrementQuantity(product.id)" class="quantity-btn small">
-                <Minus :size="14" />
-              </button>
-              <span class="quantity">{{ getProductQuantity(product.id) }}</span>
-              <button @click="incrementQuantity(product.id)" class="quantity-btn small">
-                <Plus :size="14" />
-              </button>
+            <div class="brand-info">
+              <h1 class="brand-title">Point da Zefinha</h1>
+              <div class="brand-meta">
+                <div class="meta-item">
+                  <span class="meta-label">Mesa:</span>
+                  <span class="meta-value">{{ getTableNumber(tableId) }}</span>
+                </div>
+                <div class="meta-divider">|</div>
+                <div class="meta-item status-active">
+                  <Clock :size="14" />
+                  <span>Em Atendimento</span>
+                </div>
+              </div>
             </div>
-            <button 
-              @click="addToCart(product)" 
-              class="add-btn"
-              :disabled="product.estoque_atual <= 0"
-              :title="product.estoque_atual <= 0 ? 'Sem estoque' : 'Adicionar ao carrinho'">
-              <Plus :size="20" />
-            </button>
           </div>
         </div>
-      </div>
 
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="pagination-controls">
-        <button @click="previousPage" :disabled="currentPage === 1" class="pagination-btn">
-          <ChevronLeft :size="20" />
-        </button>
-        <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-btn">
-          <ChevronRight :size="20" />
-        </button>
+        <div class="header-right">
+          <div class="total-display">
+            <div class="total-label">Valor Total</div>
+            <div class="total-value">R$ {{ formatPrice(cartStore.total) }}</div>
+          </div>
+          <div class="cart-icon-wrapper">
+            <ShoppingCart :size="22" />
+            <div v-if="cartItemsCount > 0" class="cart-badge">{{ cartItemsCount }}</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- CARRINHO -->
-    <div class="cart-panel">
-      <div class="cart-panel-header">
-        <div class="header-top">
-          <div class="table-info">
-            <span class="label">Mesa</span>
-            <span class="table-number">{{ getTableNumber(tableId) }}</span>
+    <!-- Conteúdo Principal -->
+    <div class="main-content">
+      <!-- Seção de Produtos -->
+      <div class="products-section">
+        <!-- Busca -->
+        <div class="search-wrapper">
+          <Search :size="20" class="search-icon" />
+          <input 
+            v-model="searchQuery" 
+            type="text" 
+            placeholder="Buscar produtos..." 
+            class="search-input-pro"
+          />
+          <button v-if="searchQuery" @click="searchQuery = ''" class="search-clear">
+            <X :size="18" />
+          </button>
+        </div>
+
+        <!-- Categorias -->
+        <div class="categories-tabs">
+          <button 
+            v-for="category in categories" 
+            :key="category.id"
+            @click="selectedCategory = category.id; currentPage = 1"
+            class="category-btn"
+            :class="{ active: selectedCategory === category.id }">
+            <Utensils v-if="category.icon === 'utensils'" :size="18" />
+            <Coffee v-else-if="category.icon === 'coffee'" :size="18" />
+            <ChefHat v-else-if="category.icon === 'chef-hat'" :size="18" />
+            <Package v-else :size="18" />
+            {{ category.name }}
+          </button>
+        </div>
+
+        <!-- Grid de Produtos -->
+        <div class="products-grid-wrapper">
+          <div v-if="paginatedProducts.length === 0" class="empty-products">
+            <Package :size="64" />
+            <p>Nenhum produto encontrado</p>
           </div>
-          <div class="item-count">
-            {{ cartItemsCount }} {{ cartItemsCount === 1 ? 'item' : 'itens' }}
+          
+          <div v-else class="products-grid-pro">
+            <div 
+              v-for="product in paginatedProducts" 
+              :key="product.id"
+              class="product-card-pro"
+              :class="{ 'out-of-stock': product.estoque_atual <= 0 }">
+              
+              <div class="product-icon-wrapper" :class="`icon-${product.categoria}`">
+                <Utensils v-if="getCategoryIcon(product.categoria) === 'utensils'" :size="32" />
+                <Coffee v-else-if="getCategoryIcon(product.categoria) === 'coffee'" :size="32" />
+                <ChefHat v-else-if="getCategoryIcon(product.categoria) === 'chef-hat'" :size="32" />
+                <Package v-else :size="32" />
+              </div>
+
+              <div class="product-details">
+                <div class="product-header">
+                  <h3 class="product-name-pro">{{ product.nome }}</h3>
+                  <div class="product-price-pro">R$ {{ formatPrice(product.preco) }}</div>
+                </div>
+                
+                <p v-if="product.descricao" class="product-desc-pro">{{ product.descricao }}</p>
+                
+                <div class="product-footer">
+                  <div class="product-stock-pro" :class="{ 'no-stock': product.estoque_atual <= 0 }">
+                    {{ product.estoque_atual > 0 ? `${product.estoque_atual} em estoque` : 'Sem estoque' }}
+                  </div>
+
+                  <div class="product-actions-pro">
+                    <div v-if="getProductQuantity(product.id) > 0" class="quantity-controls-pro">
+                      <button @click="decrementQuantity(product.id)" class="qty-btn-pro">
+                        <Minus :size="16" />
+                      </button>
+                      <span class="qty-display-pro">{{ getProductQuantity(product.id) }}</span>
+                      <button @click="incrementQuantity(product.id)" class="qty-btn-pro">
+                        <Plus :size="16" />
+                      </button>
+                    </div>
+                    
+                    <button 
+                      @click="addToCart(product)" 
+                      class="add-btn-pro"
+                      :disabled="product.estoque_atual <= 0">
+                      <Plus :size="20" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <!-- Paginação -->
+        <div v-if="totalPages > 1" class="pagination-pro">
+          <button @click="previousPage" :disabled="currentPage === 1" class="pagination-btn-pro">
+            <ChevronLeft :size="20" />
+          </button>
+          <div class="pagination-info">{{ currentPage }} / {{ totalPages }}</div>
+          <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-btn-pro">
+            <ChevronRight :size="20" />
+          </button>
         </div>
       </div>
 
-      <!-- Área dos Itens do Carrinho -->
-      <div class="cart-items-section">
-        <h3 class="section-title">Itens do Pedido</h3>
-        <div v-if="cartStore.cartItems.length === 0" class="empty-cart">
-          <Package :size="32" />
-          <p>Nenhum item adicionado</p>
-        </div>
-        <div v-else class="cart-items-container">
-          <div class="cart-items">
-            <div v-for="item in paginatedCartItems" :key="item.product.id" class="cart-item">
-              <div class="item-details">
-                <div class="item-name">{{ item.product.nome }}</div>
-                <div class="item-meta">
-                  <span class="item-price">R$ {{ formatPrice(item.product.preco) }} cada</span>
-                  <span class="item-subtotal">R$ {{ formatPrice(item.product.preco * item.quantity) }}</span>
+      <!-- Seção do Carrinho -->
+      <div class="cart-section-pro">
+        <div class="cart-container-pro">
+          <!-- Header do Carrinho -->
+          <div class="cart-header-pro">
+            <h2 class="cart-title-pro">Carrinho de Compras</h2>
+            <div class="cart-count-badge">{{ cartItemsCount }} {{ cartItemsCount === 1 ? 'item' : 'itens' }}</div>
+          </div>
+
+          <!-- Itens do Carrinho -->
+          <div class="cart-items-wrapper">
+            <div v-if="cartStore.cartItems.length === 0" class="empty-cart-pro">
+              <ShoppingCart :size="64" />
+              <p>Carrinho vazio</p>
+            </div>
+
+            <div v-else>
+              <div class="cart-items-pro">
+                <div 
+                  v-for="item in paginatedCartItems" 
+                  :key="item.product.id"
+                  class="cart-item-pro">
+                  
+                  <div class="cart-item-header">
+                    <div class="cart-item-info">
+                      <div class="cart-item-name">{{ item.product.nome }}</div>
+                      <div class="cart-item-prices">
+                        <span class="item-unit-price">R$ {{ formatPrice(item.product.preco) }}</span>
+                        <span class="item-multiplier">×</span>
+                        <span class="item-quantity">{{ item.quantity }}</span>
+                        <span class="item-equals">=</span>
+                        <span class="item-subtotal">R$ {{ formatPrice(item.product.preco * item.quantity) }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="cart-item-actions">
+                    <div class="cart-qty-controls">
+                      <button @click="decrementQuantity(item.product.id)" class="cart-qty-btn">
+                        <Minus :size="14" />
+                      </button>
+                      <span class="cart-qty-display">{{ item.quantity }}</span>
+                      <button @click="incrementQuantity(item.product.id)" class="cart-qty-btn">
+                        <Plus :size="14" />
+                      </button>
+                    </div>
+                    <button @click="removeFromCart(item.product.id)" class="cart-delete-btn">
+                      <Trash2 :size="14" />
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div class="item-controls">
-                <div class="quantity-section">
-                  <button @click="decrementQuantity(item.product.id)" class="quantity-btn">
-                    <Minus :size="14" />
-                  </button>
-                  <span class="quantity-display">{{ item.quantity }}</span>
-                  <button @click="incrementQuantity(item.product.id)" class="quantity-btn">
-                    <Plus :size="14" />
-                  </button>
-                </div>
-                <button @click="removeFromCart(item.product.id)" class="delete-btn">
-                  <Trash2 :size="14" />
+
+              <!-- Paginação do Carrinho -->
+              <div v-if="totalCartPages > 1" class="cart-pagination">
+                <button @click="previousCartPage" :disabled="currentCartPage === 1" class="cart-page-btn">
+                  <ChevronUp :size="16" />
+                </button>
+                <span class="cart-page-info">{{ currentCartPage }} / {{ totalCartPages }}</span>
+                <button @click="nextCartPage" :disabled="currentCartPage === totalCartPages" class="cart-page-btn">
+                  <ChevronDown :size="16" />
                 </button>
               </div>
             </div>
           </div>
 
-          <div v-if="totalCartPages > 1" class="cart-pagination">
-            <button @click="previousCartPage" :disabled="currentCartPage === 1" class="pagination-btn">
-              <ChevronUp :size="16" />
-            </button>
-            <span class="page-info">Página {{ currentCartPage }} de {{ totalCartPages }}</span>
-            <button @click="nextCartPage" :disabled="currentCartPage === totalCartPages" class="pagination-btn">
-              <ChevronDown :size="16" />
-            </button>
+          <!-- Desconto -->
+          <div class="discount-section-pro">
+            <div class="section-title-pro">
+              <Sparkles :size="16" />
+              Desconto
+            </div>
+            <div class="discount-inputs">
+              <select v-model="cartStore.discountType" class="discount-select-pro">
+                <option value="percent">%</option>
+                <option value="fixed">R$</option>
+              </select>
+              <input 
+                v-model.number="cartStore.discountValue" 
+                type="number" 
+                min="0" 
+                :max="cartStore.discountType === 'percent' ? 100 : cartStore.subtotal"
+                placeholder="0" 
+                class="discount-input-pro"
+              />
+            </div>
+          </div>
+
+          <!-- Forma de Pagamento -->
+          <div class="payment-section-pro">
+            <div class="section-title-pro">Forma de Pagamento</div>
+            <div class="payment-grid">
+              <button 
+                v-for="method in paymentMethods" 
+                :key="method.id"
+                @click="cartStore.setPaymentMethod(method.id)"
+                class="payment-btn-pro"
+                :class="{ active: cartStore.selectedPayment === method.id }">
+                <Banknote v-if="method.icon === 'banknote'" :size="18" />
+                <CreditCard v-else-if="method.icon === 'credit-card'" :size="18" />
+                <Smartphone v-else-if="method.icon === 'smartphone'" :size="18" />
+                <span>{{ method.name }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Resumo -->
+          <div class="summary-section-pro">
+            <div class="summary-row">
+              <span>Subtotal</span>
+              <span class="summary-value">R$ {{ formatPrice(cartStore.subtotal) }}</span>
+            </div>
+            <div v-if="cartStore.discountAmount > 0" class="summary-row discount-row">
+              <span>Desconto</span>
+              <span class="summary-value">- R$ {{ formatPrice(cartStore.discountAmount) }}</span>
+            </div>
+            <div class="summary-row total-row">
+              <span>Total a Pagar</span>
+              <span class="summary-value total-value">R$ {{ formatPrice(cartStore.total) }}</span>
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="action-buttons-pro">
+              <button @click="clearCartConfirm" class="btn-clear-pro" :disabled="cartStore.cartItems.length === 0">
+                <Trash2 :size="18" />
+                Limpar
+              </button>
+              <button @click="finalizeOrder" class="btn-confirm-pro" :disabled="cartStore.cartItems.length === 0">
+                <Check :size="18" />
+                Finalizar Pedido
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <!-- Desconto -->
-      <div class="discount-section">
-        <h3 class="section-title">Desconto</h3>
-        <div class="discount-input-group">
-          <select 
-            :value="cartStore.discountType" 
-            @change="cartStore.setDiscount($event.target.value, cartStore.discountValue)" 
-            class="discount-select">
-            <option value="percentage">%</option>
-            <option value="fixed">R$</option>
-          </select>
-          <input 
-            :value="cartStore.discountValue" 
-            @input="cartStore.setDiscount(cartStore.discountType, parseFloat($event.target.value) || 0)"
-            type="number" 
-            min="0" 
-            :max="cartStore.discountType === 'percentage' ? 100 : cartStore.subtotal"
-            placeholder="0"
-            class="discount-input"
-          />
-        </div>
-      </div>
-
-      <!-- ✅ BOTÕES DE PAGAMENTO CORRIGIDOS E MENORES -->
-      <div class="payment-section">
-        <h3 class="section-title">Forma de Pagamento</h3>
-        <div class="payment-options">
-          <button 
-            v-for="method in paymentMethods" 
-            :key="method.id"
-            @click="cartStore.setPaymentMethod(method.id)"
-            class="payment-option"
-            :class="{ active: cartStore.selectedPayment === method.id }">
-            {{ method.name }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Resumo -->
-      <div class="summary-section">
-        <div class="summary-row">
-          <span>Subtotal:</span>
-          <span>R$ {{ formatPrice(cartStore.subtotal) }}</span>
-        </div>
-        <div v-if="cartStore.discountAmount > 0" class="summary-row discount">
-          <span>Desconto:</span>
-          <span>- R$ {{ formatPrice(cartStore.discountAmount) }}</span>
-        </div>
-        <div class="summary-row total">
-          <span>Total:</span>
-          <span>R$ {{ formatPrice(cartStore.total) }}</span>
-        </div>
-      </div>
-
-      <!-- Ações -->
-      <div class="panel-actions">
-        <button @click="clearCartConfirm" class="btn-secondary" :disabled="cartStore.cartItems.length === 0">
-          <Trash2 :size="16" />Limpar
-        </button>
-        <button @click="finalizeOrder" class="btn-primary" :disabled="cartStore.cartItems.length === 0">
-          <Check :size="16" />Confirmar
-        </button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-.pdv-container { 
-  display: flex; 
-  height: 100vh; 
-  background: #f8fafc; 
-  position: fixed; 
-  top: 0; 
-  left: 0; 
-  right: 0; 
-  bottom: 0; 
-  z-index: 9999; 
-  width: 100%; 
-  overflow: hidden; 
-}
-
-.products-section { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  overflow: hidden; 
-  border-right: 1px solid #e5e7eb; 
-  max-width: calc(100% - 400px); 
-}
-
-/* ✅ HEADER CORRIGIDO - AGORA VISÍVEL */
-.pdv-header { 
-  background: white; 
-  padding: 1rem; 
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); 
-  position: sticky; 
-  top: 0; 
-  z-index: 20; 
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.header-content { 
-  display: flex; 
-  align-items: center; 
-  gap: 1rem; 
-}
-
-.btn-back { 
-  background: #C41E3A; 
-  color: white; 
-  border: none; 
-  border-radius: 50%; 
-  width: 40px; 
-  height: 40px; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  cursor: pointer; 
-  transition: all 0.3s ease; 
-  flex-shrink: 0; 
-}
-
-.btn-back:hover { 
-  background: #a51830; 
-  transform: scale(1.05); 
-}
-
-.pdv-title { 
-  color: #C41E3A; 
-  font-size: 1.5rem; 
-  font-weight: bold; 
-  display: flex; 
-  align-items: center; 
-  gap: 0.5rem; 
-  margin: 0;
-}
-
-.search-section { 
-  padding: 1rem; 
-  background: white; 
-  border-bottom: 1px solid #e5e7eb; 
-  position: sticky; 
-  top: 80px; 
-  z-index: 19; 
-}
-
-.search-input-wrapper { 
-  position: relative; 
-  display: flex; 
-  align-items: center; 
-}
-
-.search-icon { 
-  position: absolute; 
-  left: 0.75rem; 
-  color: #6b7280; 
-}
-
-.search-input { 
-  width: 100%; 
-  padding: 0.75rem 2.5rem; 
-  border: 1px solid #e5e7eb; 
-  border-radius: 12px; 
-  font-size: 1rem; 
-}
-
-.clear-search { 
-  position: absolute; 
-  right: 0.75rem; 
-  background: none; 
-  border: none; 
-  color: #6b7280; 
-  cursor: pointer; 
-}
-
-.category-tabs { 
-  display: flex; 
-  gap: 0.5rem; 
-  padding: 0.75rem 1rem; 
-  background: white; 
-  border-bottom: 1px solid #e5e7eb; 
-  overflow-x: auto; 
-  position: sticky; 
-  top: 150px; 
-  z-index: 18; 
-}
-
-.category-tab { 
-  padding: 0.5rem 1rem; 
-  border: 1px solid #e5e7eb; 
-  border-radius: 20px; 
-  background: white; 
-  color: #6b7280; 
-  cursor: pointer; 
-  white-space: nowrap; 
-  transition: all 0.3s ease; 
-}
-
-.category-tab.active { 
-  background: #C41E3A; 
-  color: white; 
-  border-color: #C41E3A; 
-}
-
-.products-grid { 
-  flex: 1; 
-  overflow-y: auto; 
-  padding: 1rem; 
-  display: grid; 
-  grid-template-columns: 1fr; 
-  gap: 1rem; 
-  align-content: start; 
-}
-
-.product-card { 
-  background: white; 
-  padding: 1rem; 
-  border-radius: 12px; 
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); 
-  display: flex; 
-  align-items: center; 
-  gap: 1rem; 
-  transition: all 0.3s ease; 
-}
-
-.product-card:hover { 
-  transform: translateY(-2px); 
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); 
-}
-
-.product-card.out-of-stock { 
-  opacity: 0.6; 
-}
-
-.product-image { 
-  width: 60px; 
-  height: 60px; 
-  border-radius: 12px; 
-  background: linear-gradient(135deg, #C41E3A20, #FF6B3520); 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  color: #C41E3A; 
-  flex-shrink: 0; 
-}
-
-.product-info { 
-  flex: 1; 
-  min-width: 0; 
-}
-
-.product-name { 
-  font-weight: 600; 
-  color: #1f2937; 
-  margin-bottom: 0.25rem; 
-  font-size: 0.95rem; 
-}
-
-.product-description { 
-  color: #6b7280; 
-  font-size: 0.8rem; 
-  margin-bottom: 0.5rem; 
-}
-
-.product-price { 
-  color: #C41E3A; 
-  font-weight: bold; 
-  font-size: 1rem; 
-}
-
-.product-stock { 
-  font-size: 0.7rem; 
-  color: #6b7280; 
-  margin-top: 0.25rem; 
-}
-
-.product-actions { 
-  display: flex; 
-  align-items: center; 
-  gap: 0.5rem; 
-  flex-shrink: 0; 
-}
-
-.quantity-controls { 
-  display: flex; 
-  align-items: center; 
-  gap: 0.5rem; 
-  background: #f8fafc; 
-  padding: 0.25rem; 
-  border-radius: 8px; 
-}
-
-.quantity-btn { 
-  width: 24px; 
-  height: 24px; 
-  border-radius: 6px; 
-  background: white; 
-  border: 1px solid #e5e7eb; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  cursor: pointer; 
-  transition: all 0.3s ease; 
-}
-
-.quantity-btn:hover:not(:disabled) { 
-  background: #C41E3A; 
-  color: white; 
-  border-color: #C41E3A; 
-}
-
-.quantity-btn:disabled { 
-  opacity: 0.5; 
-  cursor: not-allowed; 
-}
-
-.quantity-btn.small { 
-  width: 20px; 
-  height: 20px; 
-}
-
-.quantity { 
-  font-weight: 600; 
-  min-width: 20px; 
-  text-align: center; 
-  font-size: 0.9rem; 
-}
-
-.add-btn { 
-  width: 40px; 
-  height: 40px; 
-  border-radius: 50%; 
-  background: linear-gradient(135deg, #C41E3A, #FF6B35); 
-  color: white; 
-  border: none; 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  box-shadow: 0 4px 12px #C41E3A40; 
-  transition: all 0.3s ease; 
-}
-
-.add-btn:hover:not(:disabled) { 
-  transform: scale(1.05); 
-}
-
-.add-btn:disabled { 
-  opacity: 0.5; 
-  cursor: not-allowed; 
-}
-
-.empty-state { 
-  text-align: center; 
-  padding: 3rem 1rem; 
-  color: #6b7280; 
-}
-
-.empty-icon { 
-  color: #d1d5db; 
-  margin-bottom: 1rem; 
-}
-
-.pagination-controls { 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  gap: 1rem; 
-  padding: 1rem; 
-  border-top: 1px solid #e5e7eb; 
-  background: white; 
-}
-
-.pagination-btn { 
-  width: 40px; 
-  height: 40px; 
-  border-radius: 8px; 
-  background: #C41E3A; 
-  color: white; 
-  border: none; 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  transition: all 0.3s ease; 
-}
-
-.pagination-btn:hover:not(:disabled) { 
-  background: #a51830; 
-  transform: translateY(-2px); 
-}
-
-.pagination-btn:disabled { 
-  background: #d1d5db; 
-  cursor: not-allowed; 
-}
-
-.page-info { 
-  font-weight: 600; 
-  color: #6b7280; 
-  min-width: 50px; 
-  text-align: center; 
-  font-size: 0.9rem; 
-}
-
-/* CARRINHO */
-.cart-panel { 
-  position: fixed; 
-  right: 0; 
-  top: 0; 
-  width: 400px; 
-  height: 100vh; 
-  background: white; 
-  display: flex; 
-  flex-direction: column; 
-  border-left: 2px solid #C41E3A; 
-  z-index: 15; 
-}
-
-.cart-panel-header { 
-  padding: 1rem; 
-  background: linear-gradient(135deg, #C41E3A, #FF6B35); 
-  color: white; 
-  flex-shrink: 0; 
-}
-
-.header-top { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-}
-
-.table-info { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 0.25rem; 
-}
-
-.label { 
-  font-size: 0.75rem; 
-  opacity: 0.9; 
-  text-transform: uppercase; 
-  font-weight: 600; 
-}
-
-.table-number { 
-  font-size: 1.5rem; 
-  font-weight: bold; 
-}
-
-.item-count { 
-  background: rgba(255, 255, 255, 0.2); 
-  padding: 0.5rem 1rem; 
-  border-radius: 20px; 
-  font-size: 0.85rem; 
-  font-weight: 600; 
-}
-
-.section-title { 
-  font-size: 0.8rem; 
-  font-weight: 700; 
-  color: #6b7280; 
-  text-transform: uppercase; 
+* { 
+  box-sizing: border-box; 
   margin: 0; 
-  margin-bottom: 0.75rem; 
-  letter-spacing: 0.5px; 
+  padding: 0; 
 }
 
-.cart-items-section { 
-  padding: 1rem; 
-  border-bottom: 1px solid #e5e7eb; 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  overflow: hidden; 
+/* Container Principal */
+.pdv-professional {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  overflow: hidden;
 }
 
-.cart-items-container { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column; 
-  overflow: hidden; 
+/* Header Profissional */
+.professional-header {
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.cart-items { 
-  flex: 1; 
-  overflow-y: auto; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 0.75rem; 
-  padding-right: 0.25rem; 
+.header-container {
+  max-width: 100%;
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.empty-cart { 
-  text-align: center; 
-  padding: 2rem 0; 
-  color: #9ca3af; 
-  font-size: 0.85rem; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  gap: 0.5rem; 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 }
 
-.cart-item { 
-  background: #f8fafc; 
-  padding: 1rem; 
-  border-radius: 12px; 
-  display: flex; 
-  gap: 1rem; 
-  align-items: center; 
-  font-size: 0.9rem; 
-  border: 1px solid #e5e7eb; 
-  transition: all 0.3s ease; 
+.btn-back-pro {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.cart-item:hover { 
-  background: #f1f5f9; 
-  transform: translateY(-1px); 
+.btn-back-pro:hover {
+  background: #e8e8e8;
+  border-color: #d0d0d0;
 }
 
-.item-details { 
-  flex: 1; 
-  min-width: 0; 
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.item-name { 
-  font-weight: 600; 
-  color: #1f2937; 
-  font-size: 0.9rem; 
-  margin-bottom: 0.5rem; 
-  line-height: 1.2; 
+.logo-pro {
+  width: 52px;
+  height: 52px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0e0e0;
 }
 
-.item-meta { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  gap: 0.5rem; 
+.logo-icon {
+  font-size: 1.75rem;
 }
 
-.item-price { 
-  color: #6b7280; 
-  font-size: 0.8rem; 
+.brand-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
-.item-subtotal { 
-  font-weight: 600; 
-  color: #C41E3A; 
-  font-size: 0.85rem; 
+.brand-title {
+  color: #333;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.5px;
 }
 
-.item-controls { 
-  display: flex; 
-  align-items: center; 
-  gap: 0.75rem; 
-  flex-shrink: 0; 
+.brand-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
 }
 
-.quantity-section { 
-  display: flex; 
-  align-items: center; 
-  gap: 0.5rem; 
-  background: white; 
-  padding: 0.25rem; 
-  border-radius: 8px; 
-  border: 1px solid #e5e7eb; 
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #666;
 }
 
-.quantity-display { 
-  font-weight: 600; 
-  min-width: 24px; 
-  text-align: center; 
-  font-size: 0.85rem; 
+.meta-label {
+  color: #999;
+  font-weight: 500;
 }
 
-.delete-btn { 
-  width: 32px; 
-  height: 32px; 
-  border-radius: 6px; 
-  background: #fef2f2; 
-  border: 1px solid #fecaca; 
-  color: #dc2626; 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  transition: all 0.3s ease; 
+.meta-value {
+  font-weight: 600;
+  color: #333;
 }
 
-.delete-btn:hover { 
-  background: #fecaca; 
-  transform: scale(1.05); 
+.meta-divider {
+  color: #d0d0d0;
 }
 
-.cart-pagination { 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  gap: 0.75rem; 
-  margin-top: 1rem; 
-  padding-top: 1rem; 
-  border-top: 1px solid #e5e7eb; 
-  flex-shrink: 0; 
+.status-active {
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  background: #e8f5e9;
+  border: 1px solid #c8e6c9;
+  color: #2e7d32;
+  font-weight: 600;
 }
 
-.discount-section { 
-  padding: 1rem; 
-  border-bottom: 1px solid #e5e7eb; 
-  flex-shrink: 0; 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 }
 
-.discount-input-group { 
-  display: flex; 
-  gap: 0.5rem; 
+.total-display {
+  text-align: right;
+  padding-right: 1.5rem;
+  border-right: 1px solid #e0e0e0;
 }
 
-.discount-select { 
-  width: 70px; 
-  padding: 0.6rem; 
-  border: 1px solid #e5e7eb; 
-  border-radius: 8px; 
-  font-weight: 600; 
-  font-size: 0.9rem; 
+.total-label {
+  color: #999;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
 }
 
-.discount-input { 
-  flex: 1; 
-  padding: 0.6rem; 
-  border: 1px solid #e5e7eb; 
-  border-radius: 8px; 
-  font-size: 0.9rem; 
+.total-value {
+  color: #333;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ✅ BOTÕES DE PAGAMENTO CORRIGIDOS E MENORES */
-.payment-section { 
-  padding: 1rem; 
-  border-bottom: 1px solid #e5e7eb; 
-  flex-shrink: 0; 
+.cart-icon-wrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+  position: relative;
 }
 
-.payment-options { 
-  display: grid; 
-  grid-template-columns: 1fr 1fr; 
-  gap: 0.5rem; 
+.cart-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: #d32f2f;
+  color: white;
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(211, 47, 47, 0.3);
 }
 
-.payment-option { 
-  padding: 0.6rem 0.5rem; 
-  border: 2px solid #e5e7eb; 
-  background: white; 
-  border-radius: 8px; 
-  cursor: pointer; 
-  font-size: 0.8rem; 
-  font-weight: 600; 
-  transition: all 0.3s ease; 
-  text-align: center; 
+/* Conteúdo Principal */
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Seção de Produtos */
+.products-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  gap: 1.25rem;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  color: #999;
+  pointer-events: none;
+}
+
+.search-input-pro {
+  width: 100%;
+  padding: 0.875rem 1rem 0.875rem 3rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: white;
+  transition: all 0.2s ease;
+  color: #333;
+}
+
+.search-input-pro:focus {
+  outline: none;
+  border-color: #999;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+.search-clear {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-clear:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.categories-tabs {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.category-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  background: white;
+  color: #666;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.category-btn:hover {
+  background: #f5f5f5;
+  border-color: #d0d0d0;
+  color: #333;
+}
+
+.category-btn.active {
+  background: #333;
+  color: white;
+  border-color: #333;
+}
+
+.products-grid-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.products-grid-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.products-grid-wrapper::-webkit-scrollbar-track {
+  background: #e0e0e0;
+  border-radius: 4px;
+}
+
+.products-grid-wrapper::-webkit-scrollbar-thumb {
+  background: #999;
+  border-radius: 4px;
+}
+
+.products-grid-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+.empty-products {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+  color: #999;
+  gap: 1rem;
+}
+
+.products-grid-pro {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1rem;
+  padding-bottom: 1rem;
+}
+
+.product-card-pro {
+  background: white;
+  padding: 1.25rem;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  display: flex;
+  gap: 1rem;
+  transition: all 0.2s ease;
+}
+
+.product-card-pro:hover {
+  border-color: #d0d0d0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.product-card-pro.out-of-stock {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.product-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.product-icon-wrapper.icon-espetinho {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.product-icon-wrapper.icon-bebida {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.product-icon-wrapper.icon-acompanhamento {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.product-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.product-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.product-name-pro {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #333;
+  line-height: 1.3;
+}
+
+.product-price-pro {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #333;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.payment-option:hover { 
-  border-color: #C41E3A; 
-  background: #C41E3A10; 
+.product-desc-pro {
+  color: #666;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
-.payment-option.active { 
-  background: #C41E3A; 
-  color: white; 
-  border-color: #C41E3A; 
+.product-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  gap: 1rem;
+  padding-top: 0.5rem;
 }
 
-.summary-section { 
-  padding: 1rem; 
-  border-bottom: 1px solid #e5e7eb; 
-  background: #f8fafc; 
-  flex-shrink: 0; 
+.product-stock-pro {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
-.summary-row { 
-  display: flex; 
-  justify-content: space-between; 
-  margin-bottom: 0.75rem; 
-  font-size: 0.9rem; 
-  color: #6b7280; 
+.product-stock-pro.no-stock {
+  color: #d32f2f;
 }
 
-.summary-row.discount { 
-  color: #10b981; 
-  font-weight: 600; 
+.product-actions-pro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.summary-row.total { 
-  border-top: 2px solid #e5e7eb; 
-  padding-top: 0.75rem; 
-  margin-top: 0.5rem; 
-  font-weight: 700; 
-  color: #1f2937; 
-  font-size: 1.1rem; 
+.quantity-controls-pro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f5f5f5;
+  padding: 0.25rem;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
 }
 
-.panel-actions { 
-  padding: 1rem; 
-  display: flex; 
-  gap: 0.75rem; 
-  background: white; 
-  border-top: 2px solid #e5e7eb; 
-  flex-shrink: 0; 
+.qty-btn-pro {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #333;
 }
 
-.btn-primary, .btn-secondary { 
-  flex: 1; 
-  padding: 0.85rem; 
-  border: none; 
-  border-radius: 10px; 
-  font-weight: 600; 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  gap: 0.5rem; 
-  font-size: 0.95rem; 
-  transition: all 0.3s ease; 
+.qty-btn-pro:hover {
+  background: #333;
+  color: white;
+  border-color: #333;
 }
 
-.btn-primary { 
-  background: #C41E3A; 
-  color: white; 
-  box-shadow: 0 4px 12px #C41E3A40; 
+.qty-display-pro {
+  font-weight: 700;
+  min-width: 24px;
+  text-align: center;
+  color: #333;
+  font-size: 0.875rem;
 }
 
-.btn-primary:hover:not(:disabled) { 
-  background: #a51830; 
-  transform: translateY(-2px); 
-  box-shadow: 0 6px 16px #C41E3A60; 
+.add-btn-pro {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: #333;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
-.btn-primary:disabled { 
-  opacity: 0.5; 
-  cursor: not-allowed; 
-  transform: none; 
+.add-btn-pro:hover:not(:disabled) {
+  background: #1a1a1a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.btn-secondary { 
-  background: #e5e7eb; 
-  color: #6b7280; 
+.add-btn-pro:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
 }
 
-.btn-secondary:hover:not(:disabled) { 
-  background: #d1d5db; 
-  transform: translateY(-2px); 
+.pagination-pro {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
 }
 
-.btn-secondary:disabled { 
-  opacity: 0.5; 
-  cursor: not-allowed; 
+.pagination-btn-pro {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #333;
 }
 
-@media (max-width: 768px) { 
-  .pdv-container { flex-direction: column; } 
-  .products-section { border-right: none; border-bottom: 1px solid #e5e7eb; flex: 1; max-width: 100%; } 
-  .cart-panel { position: relative; width: 100%; right: auto; top: auto; border-left: none; border-top: 2px solid #C41E3A; height: 45%; max-height: 45%; } 
+.pagination-btn-pro:hover:not(:disabled) {
+  background: #333;
+  color: white;
+  border-color: #333;
+}
+
+.pagination-btn-pro:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  background: #333;
+  color: white;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+/* Seção do Carrinho */
+.cart-section-pro {
+  width: 420px;
+  flex-shrink: 0;
+  border-left: 1px solid #e0e0e0;
+  background: white;
+}
+
+.cart-container-pro {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cart-header-pro {
+  padding: 1.25rem 1.5rem;
+  background: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.cart-title-pro {
+  color: #333;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.cart-count-badge {
+  padding: 0.4rem 0.875rem;
+  border-radius: 6px;
+  background: #333;
+  color: white;
+  font-weight: 700;
+  font-size: 0.8125rem;
+}
+
+.cart-items-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  background: white;
+}
+
+.cart-items-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cart-items-wrapper::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.cart-items-wrapper::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 4px;
+}
+
+.cart-items-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.empty-cart-pro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  color: #d0d0d0;
+  gap: 1rem;
+}
+
+.cart-items-pro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cart-item-pro {
+  background: #fafafa;
+  padding: 0.4rem 0.5rem;
+  border-radius: 5px;
+  border: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.cart-item-pro:hover {
+  background: #f5f5f5;
+  border-color: #e0e0e0;
+}
+
+.cart-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.cart-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cart-item-name {
+  font-weight: 700;
+  color: #333;
+  font-size: 0.6875rem;
+  margin-bottom: 0.2rem;
+  line-height: 1.2;
+}
+
+.cart-item-prices {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.item-unit-price {
+  color: #666;
+  font-weight: 500;
+}
+
+.item-multiplier,
+.item-equals {
+  color: #d0d0d0;
+  font-weight: 600;
+}
+
+.item-quantity {
+  color: #333;
+  font-weight: 700;
+}
+
+.item-subtotal {
+  font-weight: 700;
+  color: #333;
+}
+
+.cart-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cart-qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: white;
+  padding: 0.1rem;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  flex: 1;
+}
+
+.cart-qty-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  background: #f5f5f5;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #333;
+}
+
+.cart-qty-btn:hover {
+  background: #e0e0e0;
+  color: #1a1a1a;
+}
+
+.cart-qty-display {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+  color: #333;
+  font-size: 0.625rem;
+}
+
+.cart-delete-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+  color: #d32f2f;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.cart-delete-btn:hover {
+  background: #ffcdd2;
+  border-color: #ef9a9a;
+}
+
+.cart-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.cart-page-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #333;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.cart-page-btn:hover:not(:disabled) {
+  background: #1a1a1a;
+}
+
+.cart-page-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cart-page-info {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.discount-section-pro,
+.payment-section-pro,
+.summary-section-pro {
+  padding: 0.625rem 1.5rem;
+  border-top: 1px solid #e0e0e0;
+  background: white;
+  flex-shrink: 0;
+}
+
+.section-title-pro {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.discount-inputs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.discount-select-pro {
+  width: 55px;
+  padding: 0.5rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #333;
+}
+
+.discount-select-pro:focus {
+  outline: none;
+  border-color: #999;
+}
+
+.discount-input-pro {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 0.8125rem;
+  transition: all 0.2s ease;
+  color: #333;
+}
+
+.discount-input-pro:focus {
+  outline: none;
+  border-color: #999;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+.payment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.payment-btn-pro {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background: white;
+  font-weight: 600;
+  font-size: 0.6875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.payment-btn-pro:hover {
+  border-color: #d0d0d0;
+  background: #f5f5f5;
+}
+
+.payment-btn-pro.active {
+  background: #333;
+  color: white;
+  border-color: #333;
+}
+
+.summary-section-pro {
+  background: #fafafa;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  color: #666;
+  font-size: 0.8125rem;
+}
+
+.summary-value {
+  font-weight: 600;
+  color: #333;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-row.discount-row {
+  color: #2e7d32;
+}
+
+.summary-row.discount-row .summary-value {
+  font-weight: 700;
+  color: #2e7d32;
+}
+
+.summary-row.total-row {
+  border-top: 1px solid #e0e0e0;
+  padding-top: 0.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  color: #333;
+  font-weight: 700;
+}
+
+.total-value {
+  font-size: 1.25rem;
+  color: #333;
+  font-weight: 800;
+}
+
+.action-buttons-pro {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-clear-pro,
+.btn-confirm-pro {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-pro {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.btn-clear-pro:hover:not(:disabled) {
+  background: #d0d0d0;
+}
+
+.btn-confirm-pro {
+  background: #333;
+  color: white;
+}
+
+.btn-confirm-pro:hover:not(:disabled) {
+  background: #1a1a1a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.btn-clear-pro:disabled,
+.btn-confirm-pro:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsivo */
+@media (max-width: 1400px) {
+  .products-grid-pro {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .products-section {
+    height: 50vh;
+  }
+  
+  .cart-section-pro {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid #e0e0e0;
+    height: 50vh;
+  }
+  
+  .header-container {
+    padding: 1rem 1.5rem;
+  }
+  
+  .brand-title {
+    font-size: 1.25rem;
+  }
+  
+  .logo-pro {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .logo-icon {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-container {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .header-left,
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .total-display {
+    border-right: none;
+    padding-right: 0;
+  }
+  
+  .products-section {
+    padding: 1rem;
+  }
+  
+  .categories-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.5rem;
+  }
+  
+  .categories-tabs::-webkit-scrollbar {
+    height: 4px;
+  }
+  
+  .categories-tabs::-webkit-scrollbar-track {
+    background: #f0f0f0;
+  }
+  
+  .categories-tabs::-webkit-scrollbar-thumb {
+    background: #d0d0d0;
+    border-radius: 2px;
+  }
+  
+  .products-grid-pro {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
+
