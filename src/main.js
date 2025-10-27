@@ -83,37 +83,26 @@ document.addEventListener('visibilitychange', async () => {
       console.log('🔄 Reconectando sistemas...')
       
       try {
-        // Reconectar Supabase session
-        const { data, error } = await userStore.supabase.auth.getSession()
+        // Tenta reconectar através da própria store
+        console.log('🔄 Reinicializando autenticação...')
+        await userStore.initAuth()
         
-        if (error) {
-          console.error('❌ Erro ao verificar sessão:', error)
-          // Se sessão expirou, redireciona para login
-          if (error.message.includes('session')) {
-            console.log('🔒 Sessão expirada, redirecionando para login...')
-            router.push('/login')
-          }
-        } else if (data.session) {
-          console.log('✅ Sessão válida:', data.session.user.email)
-          
-          // Força atualização do userStore
-          await userStore.initAuth()
-          console.log('✅ UserStore atualizado')
+        // Verifica se ainda está autenticado
+        if (userStore.isAuthenticated) {
+          console.log('✅ Sessão válida:', userStore.profile?.email)
+          console.log('✅ Reconexão bem-sucedida!')
         } else {
-          console.log('⚠️ Sem sessão ativa')
+          console.log('⚠️ Sem sessão ativa após reconexão')
           router.push('/login')
-        }
-        
-        // Recarregar dados da página atual se necessário
-        const currentRoute = router.currentRoute.value
-        if (currentRoute.meta.requiresAuth) {
-          console.log('🔄 Recarregando dados da rota atual...')
-          // Força re-render do componente
-          router.go(0)
         }
         
       } catch (err) {
         console.error('❌ Erro durante reconexão:', err)
+        // Se der erro, tenta recarregar a página
+        console.log('🔄 Tentando recarregar página...')
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
       }
     }
     
