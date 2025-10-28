@@ -1,34 +1,5 @@
 <template>
   <div class="tables-container">
-    <!-- ✅ NOVO: Indicador de Status de Conexão -->
-    <div v-if="!tablesStore.isOnline || tablesStore.hasPendingOperations" class="connection-banner">
-      <div class="banner-content">
-        <div class="status-icon">
-          <svg v-if="!tablesStore.isOnline" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 9v4m0 4h.01M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-          </svg>
-          <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-          </svg>
-        </div>
-        <div class="status-text">
-          <span v-if="!tablesStore.isOnline">
-            <strong>Modo Offline</strong> - Suas ações serão sincronizadas quando voltar online
-          </span>
-          <span v-else>
-            <strong>Sincronizando...</strong> {{ tablesStore.pendingSync }} operação(ões) pendente(s)
-          </span>
-        </div>
-        <button 
-          v-if="tablesStore.hasPendingOperations && tablesStore.isOnline" 
-          @click="forceSyncNow" 
-          class="btn-sync"
-        >
-          Sincronizar Agora
-        </button>
-      </div>
-    </div>
-
     <!-- Header -->
     <div class="tables-header">
       <div class="header-top">
@@ -38,12 +9,6 @@
           </svg>
         </button>
         <h1 class="tables-title">Selecione uma Mesa</h1>
-        
-        <!-- ✅ NOVO: Indicador de Status Compacto -->
-        <div class="connection-indicator" :class="tablesStore.connectionStatus">
-          <div class="indicator-dot"></div>
-          <span class="indicator-text">{{ getConnectionText() }}</span>
-        </div>
       </div>
       <div class="tables-stats">
         <span class="stat-item">
@@ -57,6 +22,10 @@
         <span class="stat-item occupied">
           <span class="stat-label">Ocupadas:</span>
           <span class="stat-value">{{ tablesStore.occupiedTables.length }}</span>
+        </span>
+        <span class="stat-item revenue">
+          <span class="stat-label">Consumo Total:</span>
+          <span class="stat-value">{{ formatCurrency(totalConsumption) }}</span>
         </span>
       </div>
     </div>
@@ -76,25 +45,25 @@
         :class="{ 
           'occupied': mesa.status === 'occupied',
           'available': mesa.status === 'available',
-          'reserved': mesa.status === 'reserved',
-          'pending-sync': mesa.pendingSync
+          'reserved': mesa.status === 'reserved'
         }"
       >
-        <!-- ✅ NOVO: Badge de Sincronização Pendente -->
-        <div v-if="mesa.pendingSync" class="sync-badge">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-          </svg>
-        </div>
-        
         <div class="table-icon">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="8" width="18" height="12" rx="2" />
             <path d="M7 8V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
           </svg>
         </div>
+        
         <div class="table-number">Mesa {{ mesa.numero }}</div>
-        <div class="table-status">{{ getStatusText(mesa.status) }}</div>
+        
+        <!-- ✅ Exibe consumo para mesas ocupadas -->
+        <div v-if="mesa.status === 'occupied'" class="consumption-info">
+          <div class="consumption-value">{{ formatCurrency(mesa.totalComanda || 0) }}</div>
+          <div class="consumption-label">Consumo Atual</div>
+        </div>
+        
+        <div v-else class="table-status">{{ getStatusText(mesa.status) }}</div>
       </div>
     </div>
 
@@ -106,21 +75,39 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useNavigationStore } from '@/stores/navigation'
 import { useTablesStore } from '@/stores/tables'
 import { useUserStore } from '@/stores/user'
+import { useCartStore } from '@/stores/cart'
 
 const router = useRouter()
 const route = useRoute()
 const navigationStore = useNavigationStore()
 const tablesStore = useTablesStore()
 const userStore = useUserStore()
+const cartStore = useCartStore()
+
+// Observa mudanças no carrinho para atualizar consumo das mesas
+watch(() => cartStore.carts, () => {
+  loadTablesConsumption()
+}, { deep: true })
+
+// ✅ Calcular consumo total de todas as mesas ocupadas
+const totalConsumption = computed(() => {
+  return tablesStore.occupiedTables.reduce((total, mesa) => {
+    const consumption = mesa.totalComanda || 0
+    return total + consumption
+  }, 0)
+})
 
 onMounted(async () => {
   // Carregar mesas
   await tablesStore.fetchTables()
+  
+  // Carregar consumo de cada mesa do carrinho
+  loadTablesConsumption()
   
   // Iniciar subscription realtime
   tablesStore.startRealtimeSubscription()
@@ -136,6 +123,37 @@ onMounted(async () => {
   
   console.log('🎯 Página de mesas montada. Contexto:', navigationStore.currentContext)
 })
+
+// Carrega o consumo de cada mesa do cartStore
+function loadTablesConsumption() {
+  tablesStore.tables.forEach(mesa => {
+    if (mesa.status === 'occupied') {
+      const cartData = cartStore.getCartByTable(mesa.id)
+      if (cartData && cartData.items.length > 0) {
+        // Calcula o total do carrinho para esta mesa
+        const total = cartData.items.reduce((sum, item) => {
+          return sum + (item.product.preco * item.quantity)
+        }, 0)
+        
+        // Aplica desconto se houver
+        let finalTotal = total
+        if (cartData.discountValue > 0) {
+          if (cartData.discountType === 'percentage') {
+            finalTotal = total - (total * cartData.discountValue / 100)
+          } else {
+            finalTotal = total - cartData.discountValue
+          }
+        }
+        
+        // Atualiza o total da mesa
+        mesa.totalComanda = Math.max(0, finalTotal)
+        console.log(`💰 Mesa ${mesa.numero}: R$ ${mesa.totalComanda.toFixed(2)}`)
+      } else {
+        mesa.totalComanda = 0
+      }
+    }
+  })
+}
 
 onUnmounted(() => {
   // Parar subscription ao sair da página
@@ -171,167 +189,18 @@ function getStatusText(status) {
   return statusMap[status] || status
 }
 
-// ✅ NOVO: Função para forçar sincronização
-async function forceSyncNow() {
-  try {
-    await tablesStore.forceSyncPendingOperations()
-    alert('Sincronização concluída!')
-  } catch (error) {
-    console.error('Erro ao sincronizar:', error)
-    alert('Erro ao sincronizar. Tente novamente.')
-  }
-}
-
-// ✅ NOVO: Texto do status de conexão
-function getConnectionText() {
-  const status = tablesStore.connectionStatus
-  const texts = {
-    'online': 'Online',
-    'offline': 'Offline',
-    'syncing': 'Sincronizando'
-  }
-  return texts[status] || 'Online'
+// ✅ Formatar valor monetário
+function formatCurrency(value) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value || 0)
 }
 </script>
 
 <style scoped>
 * {
   box-sizing: border-box;
-}
-
-/* ✅ NOVO: Estilos do Banner de Conexão */
-.connection-banner {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: white;
-  padding: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  animation: slideDown 0.3s ease-out;
-}
-
-@keyframes slideDown {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.banner-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.status-icon {
-  flex-shrink: 0;
-}
-
-.status-text {
-  flex: 1;
-}
-
-.btn-sync {
-  background: white;
-  color: #f59e0b;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-
-.btn-sync:hover {
-  background: #fef3c7;
-  transform: scale(1.05);
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* ✅ NOVO: Indicador de Conexão Compacto */
-.connection-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  margin-left: auto;
-}
-
-.connection-indicator.online {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.connection-indicator.offline {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.connection-indicator.syncing {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.indicator-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.connection-indicator.online .indicator-dot {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.indicator-text {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* ✅ NOVO: Badge de Sincronização Pendente */
-.sync-badge {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: #fbbf24;
-  color: white;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.table-card.pending-sync {
-  border-color: #fbbf24;
-  opacity: 0.85;
 }
 
 .tables-container {
@@ -413,6 +282,11 @@ function getConnectionText() {
   color: #ef4444;
 }
 
+.stat-item.revenue .stat-value {
+  color: #8b5cf6;
+  font-size: 1.1rem;
+}
+
 .loading-state,
 .empty-state {
   text-align: center;
@@ -423,13 +297,13 @@ function getConnectionText() {
 
 .tables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1.5rem;
 }
 
 .table-card {
   background: white;
-  padding: 2rem 1.5rem;
+  padding: 1.5rem;
   border-radius: 16px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   cursor: pointer;
@@ -441,6 +315,7 @@ function getConnectionText() {
   align-items: center;
   gap: 0.75rem;
   position: relative;
+  min-height: 180px;
 }
 
 .table-card:hover {
@@ -462,7 +337,6 @@ function getConnectionText() {
 
 .table-card.occupied {
   border-color: #ef4444;
-  opacity: 0.7;
 }
 
 .table-card.occupied .table-icon {
@@ -486,8 +360,8 @@ function getConnectionText() {
 }
 
 .table-icon {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -495,7 +369,7 @@ function getConnectionText() {
 }
 
 .table-number {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: bold;
   color: #1f2937;
 }
@@ -504,6 +378,25 @@ function getConnectionText() {
   font-size: 0.875rem;
   color: #6b7280;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ✅ Estilos para informações de consumo */
+.consumption-info {
+  text-align: center;
+}
+
+.consumption-value {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #ef4444;
+  margin-bottom: 0.25rem;
+}
+
+.consumption-label {
+  font-size: 0.75rem;
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -534,29 +427,31 @@ function getConnectionText() {
   }
 
   .tables-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 1rem;
   }
 
   .table-card {
-    padding: 1.5rem 1rem;
+    padding: 1rem;
+    min-height: 160px;
   }
 
   .table-number {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
   }
   
-  .connection-indicator {
-    display: none;
+  .consumption-value {
+    font-size: 1.1rem;
   }
   
-  .banner-content {
+  .tables-stats {
+    gap: 1rem;
+  }
+  
+  .stat-item {
     flex-direction: column;
+    gap: 0.25rem;
     text-align: center;
-  }
-  
-  .btn-sync {
-    width: 100%;
   }
 }
 </style>
