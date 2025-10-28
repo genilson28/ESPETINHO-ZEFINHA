@@ -74,58 +74,55 @@
             <div class="user-avatar" :style="{ background: getRoleColor(user.role) }">
               {{ user.nome?.charAt(0).toUpperCase() || 'U' }}
             </div>
+            <div class="user-info">
+              <h3 class="user-name">{{ user.nome }}</h3>
+              <div class="user-email">{{ user.email }}</div>
+            </div>
             <div class="user-badge" :class="user.role">
               {{ getRoleLabel(user.role) }}
             </div>
           </div>
 
-          <div class="user-info">
-            <h3 class="user-name">{{ user.nome }}</h3>
-            <div class="user-details">
-              <div class="detail-item">
-                <Mail :size="16" />
-                <span>{{ user.email }}</span>
-              </div>
-              <div class="detail-item" v-if="user.telefone">
-                <Phone :size="16" />
-                <span>{{ user.telefone }}</span>
-              </div>
-              <div class="detail-item">
-                <Calendar :size="16" />
-                <span>Desde {{ formatDate(user.created_at) }}</span>
-              </div>
+          <div class="user-details">
+            <div class="detail-item" v-if="user.telefone">
+              <Phone :size="14" />
+              <span>{{ user.telefone }}</span>
+            </div>
+            <div class="detail-item">
+              <Calendar :size="14" />
+              <span>Desde {{ formatDate(user.created_at) }}</span>
             </div>
           </div>
 
-          <div class="user-status">
+          <div class="user-footer">
             <span class="status-badge" :class="user.ativo ? 'active' : 'inactive'">
               {{ user.ativo ? 'Ativo' : 'Inativo' }}
             </span>
-          </div>
-
-          <div class="user-actions" v-if="userStore.can('gerenciar_usuarios')">
-            <button 
-              class="action-btn edit" 
-              @click="editUser(user)"
-              title="Editar"
-            >
-              <Edit2 :size="18" />
-            </button>
-            <button 
-              class="action-btn toggle" 
-              @click="toggleUserStatus(user)"
-              :title="user.ativo ? 'Desativar' : 'Ativar'"
-            >
-              <Power :size="18" />
-            </button>
-            <button 
-              class="action-btn delete" 
-              @click="deleteUser(user)"
-              title="Excluir"
-              v-if="user.id !== userStore.profile?.id"
-            >
-              <Trash2 :size="18" />
-            </button>
+            
+            <div class="user-actions" v-if="userStore.can('gerenciar_usuarios')">
+              <button 
+                class="action-btn edit" 
+                @click="editUser(user)"
+                title="Editar"
+              >
+                <Edit2 :size="16" />
+              </button>
+              <button 
+                class="action-btn toggle" 
+                @click="toggleUserStatus(user)"
+                :title="user.ativo ? 'Desativar' : 'Ativar'"
+              >
+                <Power :size="16" />
+              </button>
+              <button 
+                class="action-btn delete" 
+                @click="deleteUser(user)"
+                title="Excluir"
+                v-if="user.id !== userStore.profile?.id"
+              >
+                <Trash2 :size="16" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -733,55 +730,82 @@ onMounted(() => {
   border-color: #C41E3A;
 }
 
-/* Users Grid */
+/* Users Grid - Cards menores e mais compactos */
 .users-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
 }
 
 .user-card {
   background: white;
-  padding: 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
+  border: 1px solid #f1f5f9;
 }
 
 .user-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .user-card.inactive {
   opacity: 0.6;
 }
 
+/* Header compacto */
 .user-header {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1rem;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .user-avatar {
-  width: 64px;
-  height: 64px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 1.5rem;
+  font-size: 1rem;
   font-weight: bold;
+  flex-shrink: 0;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-email {
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-badge {
-  padding: 0.375rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
   font-weight: 600;
   color: white;
+  white-space: nowrap;
 }
 
 .user-badge.admin {
@@ -800,39 +824,35 @@ onMounted(() => {
   background: linear-gradient(135deg, #f59e0b, #d97706);
 }
 
-.user-info {
-  margin-bottom: 1rem;
-}
-
-.user-name {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #1f2937;
-  margin-bottom: 0.75rem;
-}
-
+/* Detalhes compactos */
 .user-details {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
 }
 
 .detail-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
   color: #6b7280;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
 }
 
-.user-status {
-  margin-bottom: 1rem;
+/* Footer compacto */
+.user-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
 }
 
 .status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.7rem;
   font-weight: 600;
 }
 
@@ -848,16 +868,13 @@ onMounted(() => {
 
 .user-actions {
   display: flex;
-  gap: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e5e7eb;
+  gap: 0.375rem;
 }
 
 .action-btn {
-  flex: 1;
-  padding: 0.625rem;
+  padding: 0.5rem;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 6px;
   background: white;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -1062,6 +1079,16 @@ onMounted(() => {
 
   .header-actions {
     justify-content: space-between;
+  }
+  
+  .user-footer {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  
+  .user-actions {
+    justify-content: center;
   }
 }
 </style>
