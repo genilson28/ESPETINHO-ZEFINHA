@@ -43,7 +43,15 @@ onMounted(async () => {
   }
 
   console.log('🔧 Inicializando mesa no carrinho:', tableId.value)
-  cartStore.initializeTable(tableId.value)
+  
+  // NÃO chame initializeTable novamente se o carrinho já existe!
+  if (!cartStore.getCartByTable(tableId.value)) {
+    await cartStore.initializeTable(tableId.value)
+  } else {
+    // Apenas define a mesa atual
+    cartStore.currentTableId = tableId.value
+    console.log('📦 Carrinho existente carregado:', cartStore.cartItems.length, 'itens')
+  }
   
   const from = route.query.from || navigationStore.currentContext.from || 'tables'
   navigationStore.setContext({
@@ -57,7 +65,6 @@ onMounted(async () => {
   await fetchProducts()
   await fetchTables()
 })
-
 watch(() => cartStore.cartItems.length, async (newLength, oldLength) => {
   if (oldLength === 0 && newLength > 0) await updateTableStatusOccupied()
   else if (oldLength > 0 && newLength === 0) await updateTableStatusAvailable()
@@ -136,18 +143,29 @@ const getCategoryIcon = (category) => {
   return 'package'
 }
 
-// FUNÇÃO CORRIGIDA - Agora volta para o dashboard do gerente
+// FUNÇÃO CORRIGIDA - Mantém carrinho ao sair
 const goBack = () => {
-  // Verifica se há itens no carrinho antes de sair
-  if (cartStore.cartItems.length > 0) {
-    const confirmLeave = confirm('Há itens no carrinho. Tem certeza que deseja voltar? O carrinho será limpo.')
-    if (!confirmLeave) {
-      return // Usuário cancelou, não faz nada
-    }
+  // Se o carrinho já está persistido (comanda aberta), apenas volta
+  if (cartStore.isCartPersisted) {
+    console.log('📌 Comanda mantida - voltando para dashboard')
+    router.push('/dashboard-gerente')
+    return
   }
   
-  // Limpa o carrinho se o usuário confirmou
-  cartStore.clearCart()
+  // Se não está persistido e tem itens, pergunta se quer persistir
+  if (cartStore.cartItems.length > 0) {
+    const userChoice = confirm('Deseja manter os itens no carrinho? Clique em "OK" para manter ou "Cancelar" para limpar.')
+    
+    if (userChoice) {
+      // Persiste o carrinho antes de sair
+      cartStore.persistCart()
+      console.log('✅ Carrinho persistido - comanda mantida')
+    } else {
+      // Usuário escolheu limpar
+      cartStore.clearCart()
+      console.log('🧹 Carrinho limpo pelo usuário')
+    }
+  }
   
   // Redireciona para o dashboard do gerente
   router.push('/dashboard-gerente')
@@ -254,7 +272,9 @@ async function finalizeOrder() {
     }
 
     alert('Pedido registrado com sucesso!')
-    cartStore.clearCart()
+    
+    // Remove o carrinho após finalização
+    await cartStore.finalizeCartAfterPayment(tableId.value)
     await fetchProducts()
   } catch (error) {
     console.error('Erro ao finalizar pedido:', error)
@@ -308,6 +328,10 @@ async function fetchTables() {
                 <div class="meta-item status-active">
                   <Clock :size="14" />
                   <span>Em Atendimento</span>
+                </div>
+                <div v-if="cartStore.isCartPersisted" class="meta-item status-persisted">
+                  <Check :size="14" />
+                  <span>Comanda Aberta</span>
                 </div>
               </div>
             </div>
@@ -508,14 +532,14 @@ async function fetchTables() {
             </div>
             <div class="discount-inputs">
               <select v-model="cartStore.discountType" class="discount-select-pro">
-                <option value="percent">%</option>
+                <option value="percentage">%</option>
                 <option value="fixed">R$</option>
               </select>
               <input 
                 v-model.number="cartStore.discountValue" 
                 type="number" 
                 min="0" 
-                :max="cartStore.discountType === 'percent' ? 100 : cartStore.subtotal"
+                :max="cartStore.discountType === 'percentage' ? 100 : cartStore.subtotal"
                 placeholder="0" 
                 class="discount-input-pro"
               />
@@ -706,6 +730,15 @@ async function fetchTables() {
   background: #e8f5e9;
   border: 1px solid #c8e6c9;
   color: #2e7d32;
+  font-weight: 600;
+}
+
+.status-persisted {
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  background: #e3f2fd;
+  border: 1px solid #bbdefb;
+  color: #1565c0;
   font-weight: 600;
 }
 
