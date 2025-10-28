@@ -21,6 +21,26 @@
       </button>
     </div>
 
+    <!-- BARRA DE PESQUISA -->
+    <div class="search-bar">
+      <div class="search-input-wrapper">
+        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input 
+          v-model="searchQuery" 
+          type="text" 
+          placeholder="Buscar por nome, categoria..." 
+          class="search-input"
+        />
+        <button v-if="searchQuery" @click="searchQuery = ''" class="search-clear">✕</button>
+      </div>
+      <div class="search-info">
+        {{ filteredProducts.length }} {{ filteredProducts.length === 1 ? 'produto' : 'produtos' }} encontrado{{ filteredProducts.length === 1 ? '' : 's' }}
+      </div>
+    </div>
+
     <div v-if="loading" class="loading"><p>Carregando produtos...</p></div>
     <div v-else-if="error" class="error-message">{{ error }}<button @click="fetchProducts">Tentar novamente</button></div>
 
@@ -45,12 +65,12 @@
         </tbody>
       </table>
 
-      <div v-if="products.length > 0" class="pagination">
+      <div v-if="filteredProducts.length > 0" class="pagination">
         <button class="pagination-btn" @click="previousPage" :disabled="currentPage === 1"><ChevronLeft :size="20" />Anterior</button>
-        <div class="pagination-info">Página {{ currentPage }} de {{ totalPages }} <span class="items-info">({{ products.length }} produtos)</span></div>
+        <div class="pagination-info">Página {{ currentPage }} de {{ totalPages }} <span class="items-info">({{ filteredProducts.length }} produtos)</span></div>
         <button class="pagination-btn" @click="nextPage" :disabled="currentPage === totalPages">Próxima<ChevronRight :size="20" /></button>
       </div>
-      <div v-if="products.length === 0" class="empty-state"><p>Nenhum produto cadastrado</p></div>
+      <div v-if="filteredProducts.length === 0" class="empty-state"><p>Nenhum produto encontrado</p></div>
     </div>
 
     <div v-if="showModal" class="modal-overlay" @click="closeModal">
@@ -176,14 +196,33 @@ const editorImage = ref(null)
 const cropData = ref({ zoom: 1, rotation: 0 })
 const currentPage = ref(1)
 const itemsPerPage = 10
+const searchQuery = ref('')
 const formData = ref({ nome: '', categoria: '', preco: 0, estoque_atual: 0, estoque_minimo: 10, ativo: true, imagem_url: '' })
 
-const paginatedProducts = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  return products.value.slice(start, start + itemsPerPage)
+// Filtrar produtos pela busca
+const filteredProducts = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return products.value
+  }
+  
+  const query = searchQuery.value.toLowerCase().trim()
+  return products.value.filter(product => {
+    return (
+      product.nome.toLowerCase().includes(query) ||
+      product.categoria.toLowerCase().includes(query) ||
+      getCategoryLabel(product.categoria).toLowerCase().includes(query)
+    )
+  })
 })
 
-const totalPages = computed(() => Math.ceil(products.value.length / itemsPerPage))
+// Produtos paginados (baseado nos filtrados)
+const paginatedProducts = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  return filteredProducts.value.slice(start, start + itemsPerPage)
+})
+
+// Total de páginas (baseado nos filtrados)
+const totalPages = computed(() => Math.ceil(filteredProducts.value.length / itemsPerPage))
 
 onMounted(async () => {
   if (!userStore.isAdmin && userStore.profile?.role !== 'gerente') {
@@ -209,11 +248,15 @@ async function fetchProducts() {
 }
 
 function previousPage() {
-  if (currentPage.value > 1) currentPage.value--
+  if (currentPage.value > 1) {
+    currentPage.value--
+  }
 }
 
 function nextPage() {
-  if (currentPage.value < totalPages.value) currentPage.value++
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+  }
 }
 
 function openCreateModal() {
@@ -423,6 +466,17 @@ function getCategoryEmoji(category) {
 .action-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(196,30,58,.3)}
 .action-label{font-size:1.125rem;font-weight:700}
 .action-description{font-size:.875rem;opacity:.9}
+
+/* ESTILOS DA BARRA DE PESQUISA */
+.search-bar{background:#fff;border-radius:12px;padding:1.5rem;margin-bottom:2rem;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.search-input-wrapper{position:relative;display:flex;align-items:center;margin-bottom:0.75rem}
+.search-icon{position:absolute;left:1rem;color:#9ca3af;pointer-events:none}
+.search-input{width:100%;padding:0.875rem 1rem 0.875rem 3rem;border:2px solid #e5e7eb;border-radius:10px;font-size:1rem;transition:all .2s;background:#f9fafb}
+.search-input:focus{outline:none;border-color:#C41E3A;background:#fff;box-shadow:0 0 0 3px rgba(196,30,58,.1)}
+.search-clear{position:absolute;right:1rem;background:#f3f4f6;border:none;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;transition:all .2s;font-size:14px}
+.search-clear:hover{background:#e5e7eb;color:#374151}
+.search-info{font-size:0.875rem;color:#6b7280;font-weight:600;padding-left:0.5rem}
+
 .products-table{background:#fff;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.08);overflow:hidden}
 table{width:100%;border-collapse:collapse}
 thead{background:#f9fafb}
@@ -443,7 +497,7 @@ td{padding:1rem;border-bottom:1px solid #f3f4f6}
 .btn-edit:hover,.btn-delete:hover{transform:scale(1.2)}
 .pagination{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-top:2px solid #f3f4f6}
 .pagination-btn{display:flex;align-items:center;gap:.5rem;padding:.75rem 1.25rem;background:#fff;border:2px solid #e5e7eb;border-radius:8px;font-weight:600;color:#374151;cursor:pointer;transition:all .2s}
-.pagination-btn:hover:not(:disabled){border-color:#C41E3A;color:#C41E3A}
+.pagination-btn:hover:not(:disabled){border-color:#C41E3A;color:#C41E3A;transform:translateY(-2px)}
 .pagination-btn:disabled{opacity:.5;cursor:not-allowed}
 .pagination-info{font-weight:600;color:#374151}
 .items-info{color:#9ca3af;font-size:.875rem}
@@ -510,5 +564,8 @@ td{padding:1rem;border-bottom:1px solid #f3f4f6}
 table{font-size:.875rem}
 th,td{padding:.75rem .5rem}
 .product-thumbnail,.product-no-image{width:50px;height:50px}
+.search-input{font-size:0.9rem;padding:0.75rem 1rem 0.75rem 2.75rem}
+.pagination{flex-direction:column;gap:1rem}
+.pagination-btn{width:100%;justify-content:center}
 }
 </style>
