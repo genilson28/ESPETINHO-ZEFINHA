@@ -6,24 +6,58 @@ import { syncService } from '@/services/syncService'
 // ✅ API de Mesas usando syncService
 const tablesAPI = {
   async getAll() {
-    const { data, error } = await supabase
+    // ✅ CORRIGIDO: Buscar mesas e pedidos separadamente
+    const { data: mesasData, error: mesasError } = await supabase
       .from(TABLES.MESAS)
       .select('*')
       .order('numero', { ascending: true })
     
-    if (error) throw error
-    return data || []
+    if (mesasError) throw mesasError
+    
+    console.log('📋 Mesas encontradas:', mesasData.length)
+    
+    // ✅ CORRIGIDO: Buscar de pwa_pedidos (não pwa_orders)
+    const { data: ordersData, error: ordersError } = await supabase
+      .from(TABLES.PEDIDOS || 'pwa_pedidos')
+      .select('*')
+    
+    if (ordersError) {
+      console.error('❌ Erro ao buscar pedidos:', ordersError)
+      throw ordersError
+    }
+    
+    console.log('📦 Pedidos encontrados:', ordersData?.length || 0)
+    console.log('🔍 Primeiros 3 pedidos:', ordersData?.slice(0, 3))
+    
+    // Mapear pedidos às mesas
+    return mesasData.map(mesa => ({
+      ...mesa,
+      orders: (ordersData || []).filter(order => order.mesa_id === mesa.id)
+    }))
   },
 
   async getById(id) {
-    const { data, error } = await supabase
+    // Buscar mesa
+    const { data: mesaData, error: mesaError } = await supabase
       .from(TABLES.MESAS)
       .select('*')
       .eq('id', id)
       .single()
     
-    if (error) throw error
-    return data
+    if (mesaError) throw mesaError
+    
+    // Buscar pedidos da mesa (de pwa_pedidos)
+    const { data: ordersData, error: ordersError } = await supabase
+      .from(TABLES.PEDIDOS || 'pwa_pedidos')
+      .select('*')
+      .eq('mesa_id', id)
+    
+    if (ordersError) throw ordersError
+    
+    return {
+      ...mesaData,
+      orders: ordersData || []
+    }
   },
 
   // ✅ INTEGRADO: Usando syncService para atualizar status
@@ -140,13 +174,30 @@ export const useTablesStore = defineStore('tables', {
       try {
         const data = await tablesAPI.getAll()
         
-        // Garantir que cada mesa tem as propriedades necessárias
+        // ✅ CORRIGIDO: Calcular totais e pedidos ativos
         this.tables = data.map(table => ({
           ...table,
-          orders: table.orders || []
+          orders: table.orders || [],
+          // Calcular total da comanda (pedidos não finalizados/cancelados/pagos)
+          totalComanda: (table.orders || [])
+            .filter(order => 
+              order.status !== 'Cancelado' && 
+              order.status !== 'Finalizado' &&
+              order.status !== 'Pago'
+            )
+            .reduce((sum, order) => sum + (order.total_price || 0), 0),
+          // Contar pedidos ativos
+          activePedidos: (table.orders || [])
+            .filter(order => 
+              order.status !== 'Cancelado' && 
+              order.status !== 'Finalizado' &&
+              order.status !== 'Pago'
+            )
+            .length
         }))
         
         console.log('✅ Mesas carregadas:', this.tables.length)
+        console.log('📊 Total de pedidos:', this.tables.reduce((sum, t) => sum + t.orders.length, 0))
         
         // ✅ Atualizar status de sincronização após carregar
         this.updateConnectionStatus()
@@ -199,40 +250,51 @@ export const useTablesStore = defineStore('tables', {
       }
 
       try {
-        // ✅ Inscrever apenas na tabela de mesas
-        this.subscription = subscribeToTables([TABLES.MESAS], (payload) => {
+        // ✅ Inscrever em mesas e pedidos (usar TABLES.PEDIDOS)
+        this.subscription = subscribeToTables([TABLES.MESAS, TABLES.PEDIDOS || 'pwa_pedidos'], (payload) => {
           console.log('🔄 Realtime update recebido:', payload)
           
-          if (payload.eventType === 'INSERT') {
-            this.tables.push({
-              ...payload.new,
-              orders: payload.new.orders || []
-            })
-            console.log(`✅ Nova mesa ${payload.new.numero} adicionada`)
-          } else if (payload.eventType === 'UPDATE') {
-            const index = this.tables.findIndex(t => t.id === payload.new.id)
-            if (index !== -1) {
-              // ✅ Usar Object.assign para forçar reatividade
-              Object.assign(this.tables[index], {
+          // Atualização de MESAS
+          if (payload.table === TABLES.MESAS) {
+            if (payload.eventType === 'INSERT') {
+              this.tables.push({
                 ...payload.new,
-                orders: payload.new.orders || [],
-                pendingSync: false // Limpar flag de sincronização pendente
+                orders: [],
+                totalComanda: 0,
+                activePedidos: 0
               })
-              console.log(`✅ Mesa ${payload.new.numero} atualizada para ${payload.new.status}`)
+              console.log(`✅ Nova mesa ${payload.new.numero} adicionada`)
+            } else if (payload.eventType === 'UPDATE') {
+              const index = this.tables.findIndex(t => t.id === payload.new.id)
+              if (index !== -1) {
+                Object.assign(this.tables[index], {
+                  ...payload.new,
+                  orders: this.tables[index].orders || [],
+                  pendingSync: false
+                })
+                console.log(`✅ Mesa ${payload.new.numero} atualizada para ${payload.new.status}`)
+              }
+            } else if (payload.eventType === 'DELETE') {
+              const index = this.tables.findIndex(t => t.id === payload.old.id)
+              if (index !== -1) {
+                this.tables.splice(index, 1)
+                console.log(`✅ Mesa ${payload.old.numero} removida`)
+              }
             }
-          } else if (payload.eventType === 'DELETE') {
-            const index = this.tables.findIndex(t => t.id === payload.old.id)
-            if (index !== -1) {
-              this.tables.splice(index, 1)
-              console.log(`✅ Mesa ${payload.old.numero} removida`)
-            }
+          }
+          
+          // Atualização de PEDIDOS (verificar ambas as tabelas)
+          if (payload.table === TABLES.PEDIDOS || payload.table === 'pwa_pedidos' || payload.table === 'pwa_orders') {
+            // Recarregar mesas quando houver mudança em pedidos
+            console.log('🔄 Pedido alterado, recarregando mesas...')
+            this.fetchTables()
           }
           
           // ✅ Atualizar status após mudanças realtime
           this.updateConnectionStatus()
         })
         
-        console.log('✅ Subscription realtime ativada para mesas')
+        console.log('✅ Subscription realtime ativada para mesas e pedidos')
       } catch (error) {
         console.error('❌ Erro ao iniciar subscription:', error)
       }
@@ -262,7 +324,21 @@ export const useTablesStore = defineStore('tables', {
         if (index !== -1) {
           this.tables[index] = {
             ...updatedTable,
-            orders: updatedTable.orders || []
+            orders: updatedTable.orders || [],
+            totalComanda: (updatedTable.orders || [])
+              .filter(order => 
+                order.status !== 'Cancelado' && 
+                order.status !== 'Finalizado' &&
+                order.status !== 'Pago'
+              )
+              .reduce((sum, order) => sum + (order.total_price || 0), 0),
+            activePedidos: (updatedTable.orders || [])
+              .filter(order => 
+                order.status !== 'Cancelado' && 
+                order.status !== 'Finalizado' &&
+                order.status !== 'Pago'
+              )
+              .length
           }
         }
         console.log(`✅ Status da mesa ${tableId} recarregado`)
