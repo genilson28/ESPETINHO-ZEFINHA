@@ -370,3 +370,151 @@ export const unsubscribeAll = () => {
 }
 
 export default supabase
+// ============================================
+// 📊 DASHBOARD API
+// ============================================
+export const dashboardAPI = {
+  /**
+   * Obter estatísticas gerais do dashboard
+   */
+  async getStats() {
+    try {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+
+      // Buscar pedidos de hoje
+      const { data: todayOrders, error: todayError } = await supabase
+        .from(TABLES.PEDIDOS)
+        .select('valor_total, status, created_at')
+        .gte('created_at', today.toISOString())
+
+      if (todayError) throw todayError
+
+      // Calcular faturamento de hoje
+      const todayRevenue = todayOrders
+        .filter(order => order.status === 'Finalizado' || order.status === 'Pago')
+        .reduce((sum, order) => sum + Number(order.valor_total || 0), 0)
+
+      // Buscar pedidos de ontem
+      const { data: yesterdayOrders, error: yesterdayError } = await supabase
+        .from(TABLES.PEDIDOS)
+        .select('valor_total, status')
+        .gte('created_at', yesterday.toISOString())
+        .lt('created_at', today.toISOString())
+
+      if (yesterdayError) throw yesterdayError
+
+      const yesterdayRevenue = yesterdayOrders
+        .filter(order => order.status === 'Finalizado' || order.status === 'Pago')
+        .reduce((sum, order) => sum + Number(order.valor_total || 0), 0)
+
+      // Calcular tendência
+      const revenueTrend = yesterdayRevenue > 0 
+        ? Number(((todayRevenue - yesterdayRevenue) / yesterdayRevenue * 100).toFixed(1))
+        : 0
+
+      const todayOrdersCount = todayOrders.length
+      const pendingOrders = todayOrders.filter(order => 
+        order.status === 'active' || order.status === 'Pendente'
+      ).length
+
+      // Buscar mesas
+      const { data: tables } = await supabase.from(TABLES.MESAS).select('status')
+      const totalTables = tables?.length || 0
+      const occupiedTables = tables?.filter(t => t.status === 'occupied').length || 0
+
+      // Buscar produtos
+      const { data: products } = await supabase
+        .from(TABLES.PRODUTOS)
+        .select('estoque_atual, estoque_minimo')
+        .eq('ativo', true)
+
+      const totalProducts = products?.length || 0
+      const lowStockProducts = products?.filter(p => p.estoque_atual <= p.estoque_minimo).length || 0
+
+      return {
+        todayRevenue,
+        todayOrders: todayOrdersCount,
+        pendingOrders,
+        occupiedTables,
+        totalTables,
+        totalProducts,
+        lowStockProducts,
+        revenueTrend
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar estatísticas:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Obter pedidos recentes
+   */
+  async getRecentOrders(limit = 10) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PEDIDOS)
+        .select(`id, mesa_id, valor_total, status, created_at, ${TABLES.MESAS}(numero)`)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+
+      if (error) throw error
+
+      return data.map(pedido => ({
+        id: pedido.id,
+        table_number: pedido.pwa_mesas?.numero || pedido.mesa_id,
+        total_price: pedido.valor_total,
+        status: pedido.status,
+        created_at: pedido.created_at
+      }))
+    } catch (error) {
+      console.error('❌ Erro ao buscar pedidos recentes:', error)
+      return []
+    }
+  },
+
+  /**
+   * Obter produtos mais vendidos
+   */
+  async getTopProducts(limit = 5) {
+    try {
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+      const { data: pedidos } = await supabase
+        .from(TABLES.PEDIDOS)
+        .select('itens')
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .neq('status', 'Cancelado')
+
+      const productStats = {}
+      
+      pedidos?.forEach(pedido => {
+        const itens = pedido.itens || []
+        itens.forEach(item => {
+          const id = item.produto_id || item.id
+          if (!productStats[id]) {
+            productStats[id] = {
+              id,
+              nome: item.nome || 'Produto',
+              sales: 0,
+              revenue: 0
+            }
+          }
+          productStats[id].sales += Number(item.quantidade || 0)
+          productStats[id].revenue += Number(item.preco || 0) * Number(item.quantidade || 0)
+        })
+      })
+
+      return Object.values(productStats)
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, limit)
+    } catch (error) {
+      console.error('❌ Erro ao buscar produtos mais vendidos:', error)
+      return []
+    }
+  }
+}
