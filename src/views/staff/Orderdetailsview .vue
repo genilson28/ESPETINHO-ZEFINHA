@@ -31,7 +31,7 @@
       <div class="info-card">
         <div class="info-header">
           <div>
-            <h2>Pedido #{{ order.id.slice(0, 8) }}</h2>
+            <h2>Pedido #{{ String(order.id).slice(0, 8) }}</h2>
             <p class="created-date">{{ formatDateTime(order.created_at) }}</p>
           </div>
           <div class="status-badge" :class="`status-${order.status}`">
@@ -360,7 +360,7 @@ const updateStatus = async (newStatus) => {
     // Criar atividade
     await syncService.insert(TABLES.ATIVIDADES, {
       tipo: 'status_change',
-      titulo: `Pedido #${orderId.slice(0, 8)} - ${getStatusLabel(newStatus)}`,
+      titulo: `Pedido #${String(orderId).slice(0, 8)} - ${getStatusLabel(newStatus)}`,
       descricao: `Status alterado para: ${getStatusLabel(newStatus)}`,
       pedido_id: orderId,
       mesa_id: order.value.mesa_id,
@@ -394,7 +394,7 @@ const cancelOrder = async () => {
     // Criar atividade
     await syncService.insert(TABLES.ATIVIDADES, {
       tipo: 'cancel_order',
-      titulo: `Pedido #${orderId.slice(0, 8)} cancelado`,
+      titulo: `Pedido #${String(orderId).slice(0, 8)} cancelado`,
       descricao: `Motivo: ${motivo}`,
       pedido_id: orderId,
       mesa_id: order.value.mesa_id,
