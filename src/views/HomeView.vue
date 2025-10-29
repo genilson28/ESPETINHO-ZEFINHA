@@ -427,7 +427,17 @@ export default {
     this.recentOrders = await dashboardAPI.getRecentOrders(10)
     
     // Buscar produtos mais vendidos
-    this.topProducts = await dashboardAPI.getTopProducts(5)
+    const topProductsData = await dashboardAPI.getTopProducts(5)
+    
+    // Garantir que os dados estão no formato correto
+    this.topProducts = topProductsData.map(product => ({
+      id: product.id || product.product_id,
+      nome: product.nome || product.name || 'Produto sem nome',
+      sales: product.sales || product.quantity || product.total_vendido || 0,
+      revenue: product.revenue || product.total_revenue || product.valor_total || 0
+    }))
+    
+    console.log('📊 Produtos mais vendidos:', this.topProducts)
     
     // Buscar produtos com estoque baixo
     const productsStore = useProductsStore()
