@@ -411,22 +411,46 @@ export default {
     },
     
     async loadDashboardData() {
-      try {
-        this.loading = true
-        this.error = null
-        // Aqui você faria suas chamadas à API para carregar os dados
-        // await this.fetchStatsData()
-        // await this.fetchRecentOrders()
-        // await this.fetchTopProducts()
-        // await this.fetchLowStockProducts()
-        // await this.fetchTablesStatus()
-      } catch (err) {
-        this.error = 'Erro ao carregar os dados do dashboard'
-        console.error(err)
-      } finally {
-        this.loading = false
-      }
-    },
+  try {
+    this.loading = true
+    this.error = null
+    
+    // Importar dashboardAPI
+    const { dashboardAPI } = await import('@/services/supabase')
+    const { useProductsStore } = await import('@/stores/products')
+    const { useTablesStore } = await import('@/stores/tables')
+    
+    // Buscar estatísticas
+    this.stats = await dashboardAPI.getStats()
+    
+    // Buscar pedidos recentes
+    this.recentOrders = await dashboardAPI.getRecentOrders(10)
+    
+    // Buscar produtos mais vendidos
+    this.topProducts = await dashboardAPI.getTopProducts(5)
+    
+    // Buscar produtos com estoque baixo
+    const productsStore = useProductsStore()
+    await productsStore.fetchProducts()
+    this.lowStockProducts = productsStore.lowStockProducts.slice(0, 5)
+    
+    // Buscar status das mesas
+    const tablesStore = useTablesStore()
+    await tablesStore.fetchTables()
+    this.tablesStatus = tablesStore.tables.map(table => ({
+      id: table.id,
+      number: table.numero,
+      status: table.status
+    }))
+    
+    console.log('✅ Dashboard carregado com sucesso!')
+  } catch (err) {
+    this.error = 'Erro ao carregar os dados do dashboard'
+    console.error('❌ Erro no dashboard:', err)
+  } finally {
+    this.loading = false
+  }
+},
     
     refreshData() {
       this.loadDashboardData()
@@ -493,16 +517,17 @@ export default {
     },
     
     getStatusLabel(status) {
-      const labels = {
-        'pending': 'Pendente',
-        'confirmed': 'Confirmado',
-        'in_preparation': 'Em Preparação',
-        'ready': 'Pronto',
-        'delivered': 'Entregue',
-        'cancelled': 'Cancelado'
-      }
-      return labels[status] || status
-    },
+  const labels = {
+    'active': 'Ativo',
+    'Pendente': 'Pendente',
+    'Preparando': 'Preparando',
+    'Pronto': 'Pronto',
+    'Finalizado': 'Finalizado',
+    'Pago': 'Pago',
+    'Cancelado': 'Cancelado'
+  }
+  return labels[status] || status
+},
     
     getTableStatusLabel(status) {
       const labels = {
