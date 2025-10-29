@@ -122,7 +122,7 @@
       >
         <div class="order-header">
           <div class="order-number">
-            <span class="number">#{{ order.id.slice(0, 8) }}</span>
+            <span class="number">#{{ String(order.id).slice(0, 8) }}</span>
             <span class="badge" :class="getOrderStatusClass(order.status)">
               {{ getStatusLabel(order.status) }}
             </span>
