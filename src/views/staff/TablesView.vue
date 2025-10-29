@@ -59,7 +59,7 @@
         
         <!-- ✅ Exibe consumo para mesas ocupadas -->
         <div v-if="mesa.status === 'occupied'" class="consumption-info">
-          <div class="consumption-value">{{ formatCurrency(mesa.totalComanda || 0) }}</div>
+          <div class="consumption-value">{{ formatCurrency(mesasConsumption[mesa.id] || 0) }}</div>
           <div class="consumption-label">Consumo Atual</div>
         </div>
         
@@ -75,42 +75,102 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useNavigationStore } from '@/stores/navigation'
 import { useTablesStore } from '@/stores/tables'
 import { useUserStore } from '@/stores/user'
-import { useCartStore } from '@/stores/cart'
+import { supabase } from '@/services/supabase'
 
 const router = useRouter()
 const route = useRoute()
 const navigationStore = useNavigationStore()
 const tablesStore = useTablesStore()
 const userStore = useUserStore()
-const cartStore = useCartStore()
 
-// Observa mudanças no carrinho para atualizar consumo das mesas
-watch(() => cartStore.carts, () => {
-  loadTablesConsumption()
-}, { deep: true })
+// ✅ Armazena o consumo de cada mesa
+const mesasConsumption = ref({})
 
 // ✅ Calcular consumo total de todas as mesas ocupadas
 const totalConsumption = computed(() => {
-  return tablesStore.occupiedTables.reduce((total, mesa) => {
-    const consumption = mesa.totalComanda || 0
-    return total + consumption
-  }, 0)
+  return Object.values(mesasConsumption.value).reduce((total, value) => total + value, 0)
 })
+
+// ✅ Buscar consumo de cada mesa ocupada do Supabase
+async function loadTablesConsumption() {
+  console.log('💰 Carregando consumo das mesas...')
+  
+  try {
+    // Buscar todos os pedidos ativos
+    const { data: pedidos, error } = await supabase
+      .from('pwa_pedidos')
+      .select('mesa_id, valor_total')
+      .eq('status', 'active')
+    
+    if (error) {
+      console.error('❌ Erro ao buscar pedidos:', error)
+      return
+    }
+    
+    // Limpar consumos anteriores
+    mesasConsumption.value = {}
+    
+    // Mapear consumo por mesa
+    if (pedidos && pedidos.length > 0) {
+      pedidos.forEach(pedido => {
+        mesasConsumption.value[pedido.mesa_id] = pedido.valor_total || 0
+        console.log(`✅ Mesa ${pedido.mesa_id}: R$ ${pedido.valor_total}`)
+      })
+    }
+    
+    console.log('📊 Consumo total:', formatCurrency(totalConsumption.value))
+    
+  } catch (error) {
+    console.error('❌ Erro ao carregar consumo:', error)
+  }
+}
+
+// ✅ Subscription em tempo real para atualizar consumo
+let pedidosSubscription = null
+
+function startConsumptionSubscription() {
+  console.log('🔔 Iniciando subscription de pedidos...')
+  
+  pedidosSubscription = supabase
+    .channel('pedidos-changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'pwa_pedidos'
+      },
+      (payload) => {
+        console.log('🔔 Pedido atualizado:', payload)
+        loadTablesConsumption()
+      }
+    )
+    .subscribe()
+}
+
+function stopConsumptionSubscription() {
+  if (pedidosSubscription) {
+    console.log('🔕 Parando subscription de pedidos...')
+    supabase.removeChannel(pedidosSubscription)
+    pedidosSubscription = null
+  }
+}
 
 onMounted(async () => {
   // Carregar mesas
   await tablesStore.fetchTables()
   
-  // Carregar consumo de cada mesa do carrinho
-  loadTablesConsumption()
+  // ✅ Carregar consumo das mesas ocupadas
+  await loadTablesConsumption()
   
-  // Iniciar subscription realtime
+  // Iniciar subscriptions realtime
   tablesStore.startRealtimeSubscription()
+  startConsumptionSubscription()
   
   // Se veio do dashboard pela query string, salva o contexto
   const fromQuery = route.query.from
@@ -124,40 +184,10 @@ onMounted(async () => {
   console.log('🎯 Página de mesas montada. Contexto:', navigationStore.currentContext)
 })
 
-// Carrega o consumo de cada mesa do cartStore
-function loadTablesConsumption() {
-  tablesStore.tables.forEach(mesa => {
-    if (mesa.status === 'occupied') {
-      const cartData = cartStore.getCartByTable(mesa.id)
-      if (cartData && cartData.items.length > 0) {
-        // Calcula o total do carrinho para esta mesa
-        const total = cartData.items.reduce((sum, item) => {
-          return sum + (item.product.preco * item.quantity)
-        }, 0)
-        
-        // Aplica desconto se houver
-        let finalTotal = total
-        if (cartData.discountValue > 0) {
-          if (cartData.discountType === 'percentage') {
-            finalTotal = total - (total * cartData.discountValue / 100)
-          } else {
-            finalTotal = total - cartData.discountValue
-          }
-        }
-        
-        // Atualiza o total da mesa
-        mesa.totalComanda = Math.max(0, finalTotal)
-        console.log(`💰 Mesa ${mesa.numero}: R$ ${mesa.totalComanda.toFixed(2)}`)
-      } else {
-        mesa.totalComanda = 0
-      }
-    }
-  })
-}
-
 onUnmounted(() => {
-  // Parar subscription ao sair da página
+  // Parar subscriptions ao sair da página
   tablesStore.stopRealtimeSubscription()
+  stopConsumptionSubscription()
 })
 
 function selecionarMesa(mesa) {
