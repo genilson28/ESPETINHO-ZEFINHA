@@ -1,103 +1,130 @@
 <template>
-  <div class="kds-pro">
-    <!-- HEADER COMPACTO -->
-    <header class="kds-header-pro">
-      <div class="header-left">
-        <div class="logo">👨‍🍳 COZINHA</div>
-        <div class="time">{{ currentTime }}</div>
+  <div class="kds-2025">
+    <!-- HEADER MODERNO -->
+    <header class="kds-header-2025">
+      <div class="header-brand">
+        <div class="logo-wrapper">
+          <div class="logo-icon">👨‍🍳</div>
+          <div class="logo-text">
+            <span class="logo-primary">KITCHEN</span>
+            <span class="logo-secondary">DISPLAY</span>
+          </div>
+        </div>
+        <div class="time-display">
+          <div class="time">{{ currentTime }}</div>
+          <div class="date">{{ currentDate }}</div>
+        </div>
       </div>
 
-      <div class="header-stats">
-        <div class="stat-chip pending">{{ stats.pending }}</div>
-        <div class="stat-chip preparing">{{ stats.preparing }}</div>
-        <div class="stat-chip ready">{{ stats.ready }}</div>
+      <!-- STATUS INDICATORS -->
+      <div class="status-indicators">
+        <div class="indicator new">
+          <div class="indicator-badge">{{ stats.pending }}</div>
+          <span>Novos</span>
+        </div>
+        <div class="indicator preparing">
+          <div class="indicator-badge">{{ stats.preparing }}</div>
+          <span>Preparando</span>
+        </div>
+        <div class="indicator ready">
+          <div class="indicator-badge">{{ stats.ready }}</div>
+          <span>Prontos</span>
+        </div>
       </div>
 
-      <div class="header-right">
-        <button @click="loadOrders" class="btn-refresh" title="Atualizar" :disabled="loading">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ spinning: loading }">
-            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+      <div class="header-actions">
+        <button @click="loadOrders" class="btn-action refresh" :disabled="loading" title="Atualizar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" :class="{ spinning: loading }">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" 
+                  stroke="currentColor" stroke-width="2"/>
           </svg>
         </button>
-        <button @click="handleLogout" class="btn-logout" title="Sair">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-            <polyline points="16 17 21 12 16 7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
+        <button @click="handleLogout" class="btn-action logout" title="Sair">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2"/>
+            <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2"/>
+            <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2"/>
           </svg>
         </button>
       </div>
     </header>
 
-    <!-- GRID DE PEDIDOS -->
-    <div class="orders-grid-pro">
-      <!-- CARD DE PEDIDO -->
-      <div 
+    <!-- MAIN GRID -->
+    <main class="orders-grid-2025">
+      <!-- ORDER CARD -->
+      <article 
         v-for="order in sortedOrders" 
         :key="order.id"
-        class="order-card-pro"
+        class="order-card-2025"
         :class="getCardClass(order)">
         
-        <!-- HEADER DO CARD -->
-        <div class="card-header-pro">
-          <div class="order-id">
-            <span class="hash">#</span>{{ order.id }}
+        <!-- CARD HEADER -->
+        <div class="card-header-2025">
+          <div class="order-meta">
+            <div class="order-id">#{{ order.id }}</div>
+            <div class="order-time" :class="{ urgent: isUrgent(order.created_at) }">
+              {{ formatOrderTime(order.created_at) }}
+            </div>
           </div>
-          <div class="order-time" :class="{ urgent: isUrgent(order.created_at) }">
-            {{ formatOrderTime(order.created_at) }}
-          </div>
-        </div>
-
-        <!-- MESA -->
-        <div class="order-table">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <line x1="3" y1="9" x2="21" y2="9"/>
-            <line x1="9" y1="21" x2="9" y2="9"/>
-          </svg>
-          Mesa {{ order.mesa_numero || 'Balcão' }}
-        </div>
-
-        <!-- ITENS -->
-        <div class="order-items-pro">
-          <div v-for="(item, index) in order.items" :key="index" class="item-pro">
-            <span class="qty">{{ item.quantity }}x</span>
-            <span class="name">{{ item.product_name }}</span>
+          <div class="table-info">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+              <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" stroke-width="2"/>
+              <line x1="9" y1="21" x2="9" y2="9" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            Mesa {{ order.mesa_numero || 'Balcão' }}
           </div>
         </div>
 
-        <!-- BADGE DE STATUS -->
-        <div class="status-badge-pro" :class="getStatusClass(order.status)">
-          {{ getStatusLabel(order.status) }}
+        <!-- ORDER ITEMS -->
+        <div class="order-items-2025">
+          <div v-for="(item, index) in order.items" :key="index" class="item-2025">
+            <span class="item-quantity">{{ item.quantity }}x</span>
+            <span class="item-name">{{ item.product_name }}</span>
+            <span class="item-dot" :style="{ backgroundColor: getItemColor(index) }"></span>
+          </div>
         </div>
 
-        <!-- BOTÃO DE AÇÃO -->
-        <button 
-          @click.prevent.stop="nextStatus(order)"
-          class="action-btn-pro"
-          :class="getActionClass(order.status)"
-          :disabled="updatingOrder === order.id">
-          <span v-if="updatingOrder === order.id">⏳ Atualizando...</span>
-          <span v-else>{{ getActionLabel(order.status) }}</span>
-        </button>
-      </div>
+        <!-- CARD FOOTER -->
+        <div class="card-footer-2025">
+          <div class="status-tag" :class="getStatusClass(order.status)">
+            {{ getStatusLabel(order.status) }}
+          </div>
+          <button 
+            @click.prevent.stop="nextStatus(order)"
+            class="action-btn-2025"
+            :class="getActionClass(order.status)"
+            :disabled="updatingOrder === order.id">
+            <span v-if="updatingOrder === order.id">
+              <div class="btn-spinner"></div>
+            </span>
+            <span v-else>{{ getActionLabel(order.status) }}</span>
+          </button>
+        </div>
+      </article>
 
       <!-- EMPTY STATE -->
-      <div v-if="sortedOrders.length === 0 && !loading" class="empty-pro">
-        <div class="empty-icon">✓</div>
-        <p>Nenhum pedido ativo</p>
+      <div v-if="sortedOrders.length === 0 && !loading" class="empty-state-2025">
+        <div class="empty-icon">🍽️</div>
+        <h3>Tudo em dia!</h3>
+        <p>Nenhum pedido ativo no momento</p>
       </div>
 
       <!-- LOADING STATE -->
-      <div v-if="loading && sortedOrders.length === 0" class="empty-pro">
-        <div class="loading-spinner"></div>
+      <div v-if="loading && sortedOrders.length === 0" class="empty-state-2025">
+        <div class="loading-spinner-2025"></div>
         <p>Carregando pedidos...</p>
       </div>
-    </div>
+    </main>
 
-    <!-- TOAST -->
-    <Transition name="toast">
-      <div v-if="showToast" class="toast-pro" :class="toastType">
+    <!-- TOAST NOTIFICATION -->
+    <Transition name="toast-2025">
+      <div v-if="showToast" class="toast-2025" :class="toastType">
+        <div class="toast-icon">
+          <span v-if="toastType === 'success'">✓</span>
+          <span v-else-if="toastType === 'error'">⚠</span>
+          <span v-else>🔔</span>
+        </div>
         {{ toastMessage }}
       </div>
     </Transition>
@@ -115,6 +142,7 @@ const userStore = useUserStore()
 
 const orders = ref([])
 const currentTime = ref('')
+const currentDate = ref('')
 const updatingOrder = ref(null)
 const loading = ref(false)
 const showToast = ref(false)
@@ -134,6 +162,15 @@ const REVERSE_STATUS_MAP = {
   'Recebido': 'pending',
   'Em Preparo': 'active',
   'Pronto': 'ready'
+}
+
+// Função para gerar cores diferentes para cada item
+const getItemColor = (index) => {
+  const colors = [
+    '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444',
+    '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#6366f1'
+  ];
+  return colors[index % colors.length];
 }
 
 const stats = computed(() => ({
@@ -384,9 +421,15 @@ const isUrgent = (timestamp) => {
 }
 
 const updateCurrentTime = () => {
-  currentTime.value = new Date().toLocaleTimeString('pt-BR', { 
+  const now = new Date()
+  currentTime.value = now.toLocaleTimeString('pt-BR', { 
     hour: '2-digit', 
     minute: '2-digit'
+  })
+  currentDate.value = now.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long'
   })
 }
 
@@ -463,335 +506,474 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* ===== VARIÁVEIS DE DESIGN 2025 ===== */
+:root {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --border-light: #e2e8f0;
+  --border-medium: #cbd5e1;
+  --accent-new: #f59e0b;
+  --accent-preparing: #3b82f6;
+  --accent-ready: #10b981;
+  --accent-urgent: #ef4444;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
 }
 
-.kds-pro {
+/* ===== BASE ===== */
+.kds-2025 {
   min-height: 100vh;
-  background: #1a1a1a;
+  background: var(--bg-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   padding: 0;
 }
 
-/* ===== HEADER ===== */
-.kds-header-pro {
-  background: #252525;
-  padding: 0.75rem 1.5rem;
+/* ===== HEADER 2025 ===== */
+.kds-header-2025 {
+  background: var(--bg-secondary);
+  padding: 1rem 2rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 2px solid #333;
+  border-bottom: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
-.header-left {
+.header-brand {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 2rem;
 }
 
-.logo {
+.logo-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  font-size: 2rem;
+  background: linear-gradient(135deg, var(--accent-preparing), var(--accent-ready));
+  border-radius: var(--radius-md);
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.logo-primary {
   font-size: 1.25rem;
-  font-weight: 900;
-  color: white;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.logo-secondary {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
   letter-spacing: 1px;
 }
 
-.time {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #10b981;
-  font-family: 'Courier New', monospace;
-}
-
-.header-stats {
-  display: flex;
-  gap: 1rem;
-}
-
-.stat-chip {
-  padding: 0.5rem 1.25rem;
-  border-radius: 6px;
-  font-weight: 900;
-  font-size: 1.25rem;
-  min-width: 50px;
+.time-display {
   text-align: center;
 }
 
-.stat-chip.pending {
-  background: #fbbf24;
-  color: #1a1a1a;
+.time {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-feature-settings: "tnum";
 }
 
-.stat-chip.preparing {
-  background: #3b82f6;
+.date {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* STATUS INDICATORS */
+.status-indicators {
+  display: flex;
+  gap: 2rem;
+}
+
+.indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.indicator-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.125rem;
   color: white;
 }
 
-.stat-chip.ready {
-  background: #10b981;
-  color: white;
+.indicator.new .indicator-badge {
+  background: var(--accent-new);
 }
 
-.header-right {
+.indicator.preparing .indicator-badge {
+  background: var(--accent-preparing);
+}
+
+.indicator.ready .indicator-badge {
+  background: var(--accent-ready);
+}
+
+.indicator span {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.header-actions {
   display: flex;
   gap: 0.75rem;
 }
 
-.btn-refresh,
-.btn-logout {
-  width: 44px;
-  height: 44px;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  border-radius: 8px;
-  color: white;
+.btn-action {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
-.btn-refresh:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btn-action:hover:not(:disabled) {
+  background: var(--bg-card);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
-.btn-refresh:hover:not(:disabled) {
-  background: #3b82f6;
+.btn-action.refresh:hover:not(:disabled) {
+  border-color: var(--accent-preparing);
+  color: var(--accent-preparing);
 }
 
-.btn-logout:hover {
-  background: #ef4444;
+.btn-action.logout:hover:not(:disabled) {
+  border-color: var(--accent-urgent);
+  color: var(--accent-urgent);
 }
 
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* ===== GRID ===== */
-.orders-grid-pro {
+/* ===== ORDERS GRID 2025 ===== */
+.orders-grid-2025 {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-  padding: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-/* ===== CARDS ===== */
-.order-card-pro {
-  background: #2a2a2a;
-  border-radius: 12px;
-  padding: 1rem;
+/* ===== ORDER CARD 2025 ===== */
+.order-card-2025 {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  border: 2px solid #333;
-  transition: all 0.2s;
+  gap: 1rem;
+  border: 1.5px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.order-card-pro.status-new {
-  border-color: #fbbf24;
-  background: linear-gradient(135deg, #2a2a2a 0%, #3a3000 100%);
+.order-card-2025::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--border-light);
+  transition: all 0.3s ease;
 }
 
-.order-card-pro.status-cooking {
-  border-color: #3b82f6;
-  background: linear-gradient(135deg, #2a2a2a 0%, #1e3a5f 100%);
+.order-card-2025.status-new::before {
+  background: linear-gradient(90deg, var(--accent-new), #fbbf24);
 }
 
-.order-card-pro.status-ready {
-  border-color: #10b981;
-  background: linear-gradient(135deg, #2a2a2a 0%, #064e3b 100%);
+.order-card-2025.status-cooking::before {
+  background: linear-gradient(90deg, var(--accent-preparing), #60a5fa);
 }
 
-.order-card-pro.urgent {
-  animation: urgentPulse 2s infinite;
+.order-card-2025.status-ready::before {
+  background: linear-gradient(90deg, var(--accent-ready), #34d399);
 }
 
-@keyframes urgentPulse {
-  0%, 100% { 
-    border-color: #ef4444;
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-  }
-  50% { 
-    border-color: #fca5a5;
-    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
-  }
+.order-card-2025.urgent::before {
+  background: linear-gradient(90deg, var(--accent-urgent), #f87171);
+  animation: urgentGlow 2s ease-in-out infinite;
 }
 
-.card-header-pro {
+.order-card-2025:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-medium);
+}
+
+@keyframes urgentGlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* CARD HEADER */
+.card-header-2025 {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.order-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .order-id {
   font-size: 1.5rem;
-  font-weight: 900;
-  color: white;
-}
-
-.hash {
-  color: #6b7280;
-  font-weight: 400;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
 }
 
 .order-time {
-  padding: 0.25rem 0.75rem;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  padding: 0.375rem 0.75rem;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
   font-size: 0.875rem;
-  font-weight: 800;
-  color: #9ca3af;
-  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-feature-settings: "tnum";
+  border: 1px solid var(--border-light);
 }
 
 .order-time.urgent {
-  background: #ef4444;
+  background: var(--accent-urgent);
   color: white;
-  animation: blink 1s infinite;
+  border-color: var(--accent-urgent);
+  animation: pulse 2s infinite;
 }
 
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
-.order-table {
+.table-info {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
-  font-weight: 800;
-  font-size: 1.125rem;
-  color: white;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
 }
 
-.order-items-pro {
+/* ORDER ITEMS */
+.order-items-2025 {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
   max-height: 200px;
   overflow-y: auto;
+  padding-right: 0.5rem;
 }
 
-.item-pro {
+.item-2025 {
   display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  position: relative;
+  transition: all 0.2s ease;
 }
 
-.qty {
-  background: rgba(255, 255, 255, 0.2);
+.item-2025:hover {
+  border-color: var(--border-medium);
+  transform: translateX(2px);
+}
+
+.item-quantity {
+  background: var(--text-primary);
   color: white;
   padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 900;
-  font-size: 0.875rem;
-  min-width: 35px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 0.75rem;
+  min-width: 28px;
   text-align: center;
+  font-feature-settings: "tnum";
 }
 
-.name {
-  color: #e5e7eb;
+.item-name {
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 0.95rem;
+  flex: 1;
 }
 
-.status-badge-pro {
-  padding: 0.5rem;
-  border-radius: 6px;
-  text-align: center;
-  font-weight: 900;
+.item-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* CARD FOOTER */
+.card-footer-2025 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: auto;
+}
+
+.status-tag {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-lg);
+  font-weight: 800;
   font-size: 0.75rem;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
-.badge-new {
-  background: #fbbf24;
-  color: #1a1a1a;
+.status-tag.badge-new {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--accent-new);
+  border: 1.5px solid var(--accent-new);
 }
 
-.badge-cooking {
-  background: #3b82f6;
-  color: white;
+.status-tag.badge-cooking {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-preparing);
+  border: 1.5px solid var(--accent-preparing);
 }
 
-.badge-ready {
-  background: #10b981;
-  color: white;
+.status-tag.badge-ready {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-ready);
+  border: 1.5px solid var(--accent-ready);
 }
 
-.action-btn-pro {
-  width: 100%;
-  padding: 0.875rem;
+.action-btn-2025 {
+  flex: 1;
+  padding: 0.875rem 1.5rem;
   border: none;
-  border-radius: 8px;
-  font-weight: 900;
-  font-size: 0.95rem;
-  letter-spacing: 1px;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  font-size: 0.875rem;
+  letter-spacing: 0.5px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
 }
 
-.action-btn-pro:disabled {
-  opacity: 0.5;
+.action-btn-2025:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none !important;
 }
 
-.action-start {
-  background: #3b82f6;
+.action-btn-2025:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.action-btn-2025.action-start {
+  background: var(--accent-new);
   color: white;
 }
 
-.action-start:hover:not(:disabled) {
+.action-btn-2025.action-start:not(:disabled):hover {
+  background: #eab308;
+}
+
+.action-btn-2025.action-finish {
+  background: var(--accent-preparing);
+  color: white;
+}
+
+.action-btn-2025.action-finish:not(:disabled):hover {
   background: #2563eb;
-  transform: scale(1.02);
 }
 
-.action-finish {
-  background: #10b981;
+.action-btn-2025.action-deliver {
+  background: var(--accent-ready);
   color: white;
 }
 
-.action-finish:hover:not(:disabled) {
+.action-btn-2025.action-deliver:not(:disabled):hover {
   background: #059669;
-  transform: scale(1.02);
 }
 
-.action-deliver {
-  background: #8b5cf6;
-  color: white;
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
-.action-deliver:hover:not(:disabled) {
-  background: #7c3aed;
-  transform: scale(1.02);
-}
-
-/* ===== EMPTY ===== */
-.empty-pro {
+/* ===== EMPTY STATE ===== */
+.empty-state-2025 {
   grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4rem;
-  color: #6b7280;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--text-secondary);
 }
 
 .empty-icon {
@@ -800,88 +982,142 @@ onUnmounted(() => {
   opacity: 0.5;
 }
 
-.loading-spinner {
+.empty-state-2025 h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.loading-spinner-2025 {
   width: 48px;
   height: 48px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #10b981;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--accent-preparing);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
 }
 
-/* ===== TOAST ===== */
-.toast-pro {
+/* ===== TOAST 2025 ===== */
+.toast-2025 {
   position: fixed;
   bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
+  background: var(--text-primary);
   color: white;
-  padding: 1rem 2rem;
-  border-radius: 8px;
-  font-weight: 800;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
   min-width: 300px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  backdrop-filter: blur(10px);
 }
 
-.toast-pro.success {
-  background: #10b981;
+.toast-2025.success {
+  background: var(--accent-ready);
 }
 
-.toast-pro.error {
-  background: #ef4444;
+.toast-2025.error {
+  background: var(--accent-urgent);
 }
 
-.toast-pro.info {
-  background: #3b82f6;
+.toast-2025.info {
+  background: var(--accent-preparing);
 }
 
-.toast-enter-active, .toast-leave-active {
-  transition: all 0.3s ease;
+.toast-icon {
+  font-size: 1.125rem;
 }
 
-.toast-enter-from, .toast-leave-to {
+.toast-2025-enter-active, .toast-2025-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toast-2025-enter-from, .toast-2025-leave-to {
   opacity: 0;
   transform: translate(-50%, 20px);
 }
 
 /* ===== SCROLLBAR ===== */
-.order-items-pro::-webkit-scrollbar {
+.order-items-2025::-webkit-scrollbar {
   width: 6px;
 }
 
-.order-items-pro::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+.order-items-2025::-webkit-scrollbar-track {
+  background: var(--border-light);
   border-radius: 3px;
 }
 
-.order-items-pro::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+.order-items-2025::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
   border-radius: 3px;
+}
+
+.order-items-2025::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ===== ANIMAÇÕES ===== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
 }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1200px) {
-  .orders-grid-pro {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  .orders-grid-2025 {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    padding: 1.5rem;
   }
 }
 
 @media (max-width: 768px) {
-  .kds-header-pro {
+  .kds-header-2025 {
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 1rem;
+    padding: 1rem;
   }
   
-  .header-stats {
+  .header-brand {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .status-indicators {
     width: 100%;
     justify-content: space-around;
   }
   
-  .orders-grid-pro {
+  .header-actions {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    flex-direction: column;
+    z-index: 90;
+  }
+  
+  .orders-grid-2025 {
     grid-template-columns: 1fr;
+    padding: 1rem;
+    margin-bottom: 4rem;
+  }
+  
+  .card-footer-2025 {
+    flex-direction: column;
+  }
+  
+  .action-btn-2025 {
+    width: 100%;
   }
 }
 </style>
