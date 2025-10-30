@@ -55,12 +55,12 @@
             <line x1="3" y1="9" x2="21" y2="9"/>
             <line x1="9" y1="21" x2="9" y2="9"/>
           </svg>
-          Mesa {{ order.table_number }}
+          Mesa {{ order.mesa_numero || 'Balcão' }}
         </div>
 
         <!-- ITENS -->
         <div class="order-items-pro">
-          <div v-for="item in order.items" :key="item.id" class="item-pro">
+          <div v-for="(item, index) in order.items" :key="index" class="item-pro">
             <span class="qty">{{ item.quantity }}x</span>
             <span class="name">{{ item.product_name }}</span>
           </div>
@@ -101,7 +101,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { kitchenAPI } from '@/services/supabase'
+import { supabase, TABLES } from '@/services/supabase'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -111,8 +111,21 @@ const currentTime = ref('')
 const updatingOrder = ref(null)
 const showToast = ref(false)
 const toastMessage = ref('')
-let unsubscribe = null
+let realtimeChannel = null
 let timeInterval = null
+
+// Mapeamento de status do sistema para a cozinha
+const STATUS_MAP = {
+  'pending': 'Recebido',
+  'active': 'Em Preparo',
+  'ready': 'Pronto'
+}
+
+const REVERSE_STATUS_MAP = {
+  'Recebido': 'pending',
+  'Em Preparo': 'active',
+  'Pronto': 'ready'
+}
 
 const stats = computed(() => ({
   pending: orders.value.filter(o => o.status === 'Recebido').length,
@@ -136,9 +149,76 @@ const sortedOrders = computed(() => {
 
 const loadOrders = async () => {
   try {
-    orders.value = await kitchenAPI.getActiveOrders()
+    console.log('🔄 Carregando pedidos da cozinha...')
+
+    const { data, error: fetchError } = await supabase
+      .from(TABLES.PEDIDOS)
+      .select(`
+        *,
+        pwa_mesas (
+          numero
+        )
+      `)
+      .in('status', ['pending', 'active', 'ready'])
+      .order('created_at', { ascending: true })
+
+    if (fetchError) {
+      console.error('❌ Erro ao buscar pedidos:', fetchError)
+      throw fetchError
+    }
+
+    console.log(`✅ ${data?.length || 0} pedidos encontrados`)
+
+    // Buscar IDs dos produtos para fazer lookup
+    const allProductIds = new Set()
+    data.forEach(order => {
+      if (Array.isArray(order.itens)) {
+        order.itens.forEach(item => {
+          allProductIds.add(item.produto_id)
+        })
+      }
+    })
+
+    // Buscar dados dos produtos
+    let productsMap = {}
+    if (allProductIds.size > 0) {
+      const { data: productsData, error: productsError } = await supabase
+        .from('pwa_produtos')
+        .select('id, nome')
+        .in('id', Array.from(allProductIds))
+
+      if (productsError) {
+        console.error('⚠️ Erro ao buscar produtos:', productsError)
+      } else {
+        productsData?.forEach(product => {
+          productsMap[product.id] = product.nome
+        })
+      }
+    }
+
+    // Mapear para formato da cozinha
+    orders.value = data.map(order => {
+      const enrichedItems = (order.itens || []).map(item => ({
+        quantity: item.quantity || item.quantidade || 1,
+        product_name: productsMap[item.produto_id] || 'Produto removido',
+        price: item.preco_unitario || item.price || 0
+      }))
+
+      return {
+        id: order.id,
+        status: STATUS_MAP[order.status] || order.status,
+        mesa_numero: order.pwa_mesas?.numero,
+        customer_name: order.customer_name,
+        created_at: order.created_at,
+        items: enrichedItems
+      }
+    })
+
+    console.log('✅ Pedidos processados:', orders.value)
+
   } catch (error) {
-    console.error('❌ Erro:', error)
+    console.error('❌ Erro geral em loadOrders:', error)
+    showToastMessage('Erro ao carregar pedidos')
   }
 }
 
@@ -146,31 +226,56 @@ const nextStatus = async (order) => {
   const statusFlow = {
     'Recebido': 'Em Preparo',
     'Em Preparo': 'Pronto',
-    'Pronto': 'Entregue'
+    'Pronto': 'completed'
   }
 
-  const newStatus = statusFlow[order.status]
-  if (!newStatus) return
+  const newKitchenStatus = statusFlow[order.status]
+  if (!newKitchenStatus) return
+
+  // Converter para status do banco
+  const newDbStatus = REVERSE_STATUS_MAP[newKitchenStatus] || newKitchenStatus
 
   try {
     updatingOrder.value = order.id
-    await kitchenAPI.updateOrderStatus(order.id, newStatus)
+    console.log(`🔄 Atualizando pedido ${order.id} para: ${newDbStatus}`)
+
+    const { error: updateError } = await supabase
+      .from(TABLES.PEDIDOS)
+      .update({ 
+        status: newDbStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', order.id)
+
+    if (updateError) {
+      console.error('❌ Erro ao atualizar:', updateError)
+      throw updateError
+    }
+
+    console.log(`✅ Pedido ${order.id} atualizado para ${newDbStatus}`)
     
-    order.status = newStatus
+    // Atualizar localmente
+    order.status = newKitchenStatus
     
     const messages = {
       'Em Preparo': 'Preparo iniciado',
       'Pronto': 'Pedido pronto!',
-      'Entregue': 'Entregue'
+      'completed': 'Entregue'
     }
     
-    showToastMessage(messages[newStatus])
+    showToastMessage(messages[newKitchenStatus])
+
+    // Recarregar se for entregue (completed)
+    if (newDbStatus === 'completed') {
+      setTimeout(() => loadOrders(), 500)
+    }
 
     if (userStore.profile?.id) {
-      await userStore.logAction('update_order_status', `#${order.id} → ${newStatus}`)
+      await userStore.logAction('update_order_status', `#${order.id} → ${newKitchenStatus}`)
     }
   } catch (error) {
-    console.error('❌ Erro:', error)
+    console.error('❌ Erro ao atualizar status:', error)
+    showToastMessage('Erro ao atualizar pedido')
   } finally {
     updatingOrder.value = null
   }
@@ -254,15 +359,39 @@ const showToastMessage = (message) => {
 }
 
 const setupRealtime = () => {
-  unsubscribe = kitchenAPI.subscribeToOrders((payload) => {
-    loadOrders()
-    if (payload.eventType === 'INSERT') {
-      showToastMessage('Novo pedido!')
-      try {
-        new Audio('/notification.mp3').play().catch(() => {})
-      } catch (e) {}
-    }
-  })
+  console.log('👂 Configurando realtime para cozinha...')
+
+  realtimeChannel = supabase
+    .channel('kitchen-orders-realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: TABLES.PEDIDOS
+      },
+      (payload) => {
+        console.log('🔔 Atualização recebida:', payload)
+        
+        if (payload.eventType === 'INSERT') {
+          const newOrder = payload.new
+          if (['pending', 'active', 'ready'].includes(newOrder.status)) {
+            showToastMessage('🔔 Novo pedido!')
+            try {
+              new Audio('/notification.mp3').play().catch(() => {})
+            } catch (e) {
+              console.log('🔇 Áudio não disponível')
+            }
+            loadOrders()
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          loadOrders()
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('📡 Status realtime:', status)
+    })
 }
 
 const handleLogout = async () => {
@@ -273,6 +402,7 @@ const handleLogout = async () => {
 }
 
 onMounted(() => {
+  console.log('🚀 Montando componente Cozinha...')
   loadOrders()
   setupRealtime()
   updateCurrentTime()
@@ -280,8 +410,13 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (unsubscribe) unsubscribe()
-  if (timeInterval) clearInterval(timeInterval)
+  console.log('🔌 Desmontando componente Cozinha...')
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel)
+  }
+  if (timeInterval) {
+    clearInterval(timeInterval)
+  }
 })
 </script>
 
