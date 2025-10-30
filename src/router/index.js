@@ -142,7 +142,7 @@ const router = createRouter({
       } 
     },
 
-    // ✅ NOVO - Dashboard Cozinha
+    // ✅ Dashboard Cozinha
     { 
       path: '/dashboard-cozinha', 
       name: 'dashboard-cozinha', 
@@ -164,7 +164,7 @@ const router = createRouter({
       component: TablesView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'caixa', 'garcom'] 
+        allowedRoles: ['admin', 'gerente', 'caixa', 'garcom', 'cozinha'] // ✅ ADICIONADO cozinha
       } 
     },
 
@@ -195,7 +195,7 @@ const router = createRouter({
       component: OrdersView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'caixa']
+        allowedRoles: ['admin', 'gerente', 'caixa', 'cozinha'] // ✅ ADICIONADO cozinha
       } 
     },
 
@@ -205,7 +205,7 @@ const router = createRouter({
       component: StaffOrdersView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'caixa']
+        allowedRoles: ['admin', 'gerente', 'caixa', 'cozinha'] // ✅ ADICIONADO cozinha
       } 
     },
 
@@ -372,7 +372,7 @@ function getHomeRoute(role) {
       return '/dashboard-gerente'
     case 'garcom':
       return '/dashboard-garcom'
-    case 'cozinha': // ✅ NOVO
+    case 'cozinha': // ✅ CONFIGURADO
       return '/dashboard-cozinha'
     case 'caixa':
       return '/tables'
