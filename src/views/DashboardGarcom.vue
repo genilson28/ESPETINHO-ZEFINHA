@@ -125,31 +125,17 @@
           v-for="mesa in mesasFiltradas"
           :key="mesa.id"
           @click="abrirMesa(mesa)"
-          :class="[
-            'relative p-6 rounded-xl shadow-md transition-all duration-200 transform hover:scale-105',
-            mesa.status === 'ocupada'
-              ? 'bg-red-500 hover:bg-red-600 text-white'
-              : 'bg-green-500 hover:bg-green-600 text-white'
-          ]"
+          class="relative p-6 rounded-xl shadow-md transition-all duration-200 transform hover:scale-105"
         >
-          <!-- Número da Mesa -->
           <div class="text-center">
-            <svg class="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-              <path d="M12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
-            </svg>
             <p class="text-2xl font-bold">{{ mesa.numero }}</p>
-            <p class="text-xs opacity-90 mt-1">
-              {{ mesa.status === 'ocupada' ? 'Ocupada' : 'Livre' }}
-            </p>
+            <p class="text-xs opacity-90 mt-1">{{ mesa.status === 'ocupada' ? 'Ocupada' : 'Livre' }}</p>
           </div>
 
-          <!-- Badge de capacidade -->
           <div class="absolute top-2 right-2 bg-white bg-opacity-30 backdrop-blur-sm px-2 py-1 rounded-full">
             <p class="text-xs font-medium">{{ mesa.capacidade }} pessoas</p>
           </div>
 
-          <!-- Indicador de pedidos ativos -->
           <div v-if="mesa.status === 'ocupada' && mesa.pedidos_ativos > 0" 
                class="absolute top-2 left-2 bg-white text-red-600 px-2 py-1 rounded-full">
             <p class="text-xs font-bold">{{ mesa.pedidos_ativos }} pedido(s)</p>
@@ -214,7 +200,6 @@ async function carregarMesas() {
     const { data, error } = await supabase
       .from(TABELA_MESAS)
       .select('*')
-      // Removido filtro .eq('ativo', true) pois a coluna não existe
       .order('numero', { ascending: true })
     
     console.log('📦 Resposta do Supabase:', { data, error, total: data?.length || 0 })
