@@ -302,10 +302,19 @@ const nextStatus = async (order) => {
       setTimeout(() => loadOrders(), 500)
     }
 
-    // Registrar log
-    if (userStore.user?.id || userStore.profile?.id) {
-  await userStore.logAction('update_order_status', `#${order.id} → ${newKitchenStatus}`)
-}
+    // Registrar atividade
+    try {
+      await supabase.from('pwa_atividades').insert({
+        tipo: 'status_cozinha',
+        titulo: `Pedido #${order.id} - ${newKitchenStatus}`,
+        descricao: `Status alterado para: ${newKitchenStatus}`,
+        pedido_id: order.id,
+        mesa_id: order.mesa_id,
+        prioridade: newKitchenStatus === 'Pronto' ? 'alta' : 'normal'
+      })
+    } catch (logError) {
+      console.warn('⚠️ Erro ao registrar atividade:', logError)
+    }
 
   } catch (error) {
     console.error('❌ Erro ao atualizar status:', error)
