@@ -303,9 +303,9 @@ const nextStatus = async (order) => {
     }
 
     // Registrar log
-    if (userStore.profile?.id) {
-      await userStore.logAction('update_order_status', `#${order.id} → ${newKitchenStatus}`)
-    }
+    if (userStore.user?.id || userStore.profile?.id) {
+  await userStore.logAction('update_order_status', `#${order.id} → ${newKitchenStatus}`)
+}
 
   } catch (error) {
     console.error('❌ Erro ao atualizar status:', error)
