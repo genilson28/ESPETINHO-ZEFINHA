@@ -632,7 +632,8 @@ onUnmounted(() => {
   justify-content: center;
   font-weight: 800;
   font-size: 1.125rem;
-  color: white;
+  /* CORRIGIDO: Mudar a cor do texto para escuro nos badges claros */
+  color: #1a1a1a; /* Texto escuro para contraste */
 }
 
 .indicator.new .indicator-badge {
