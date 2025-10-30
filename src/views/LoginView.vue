@@ -33,6 +33,8 @@ const handleLogin = async () => {
     
     if (userRole === 'admin' || userRole === 'gerente') {
       router.push('/')
+    } else if (userRole === 'cozinha') {
+      router.push('/dashboard-cozinha')  // 👈 LINHA ADICIONADA
     } else {
       router.push('/tables')
     }
