@@ -306,6 +306,7 @@ const nextStatus = async (order) => {
         mesa_id: order.mesa_id,
         prioridade: newKitchenStatus === 'Pronto' ? 'alta' : 'normal'
       })
+      console.log(`📝 Atividade registrada para pedido #${order.id}`)
     } catch (logError) {
       console.warn('⚠️ Erro ao registrar atividade:', logError)
     }
