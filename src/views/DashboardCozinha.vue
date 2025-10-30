@@ -1,223 +1,241 @@
 <template>
   <div class="kds-2025">
-    <!-- HEADER MODERNO -->
+    <!-- HEADER -->
     <header class="kds-header-2025">
       <div class="header-brand">
         <div class="logo-wrapper">
-          <div class="logo-icon">👨‍🍳</div>
+          <div class="logo-icon">🍽️</div>
           <div class="logo-text">
-            <span class="logo-primary">KITCHEN</span>
-            <span class="logo-secondary">DISPLAY</span>
+            <span class="logo-primary">Kitchen Display</span>
+            <span class="logo-secondary">System 2025</span>
           </div>
         </div>
+        
         <div class="time-display">
           <div class="time">{{ currentTime }}</div>
           <div class="date">{{ currentDate }}</div>
         </div>
       </div>
 
-      <!-- STATUS INDICATORS -->
       <div class="status-indicators">
         <div class="indicator new">
-          <div class="indicator-badge">{{ stats.pending }}</div>
+          <div class="indicator-badge">{{ statusCounts.new }}</div>
           <span>Novos</span>
         </div>
         <div class="indicator preparing">
-          <div class="indicator-badge">{{ stats.preparing }}</div>
+          <div class="indicator-badge">{{ statusCounts.preparing }}</div>
           <span>Preparando</span>
         </div>
         <div class="indicator ready">
-          <div class="indicator-badge">{{ stats.ready }}</div>
+          <div class="indicator-badge">{{ statusCounts.ready }}</div>
           <span>Prontos</span>
         </div>
       </div>
 
       <div class="header-actions">
-        <button @click="loadOrders" class="btn-action refresh" :disabled="loading" title="Atualizar">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" :class="{ spinning: loading }">
-            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" 
-                  stroke="currentColor" stroke-width="2"/>
-          </svg>
+        <button class="btn-action refresh" @click="refreshOrders" :disabled="loading">
+          <span :class="{ spinning: loading }">🔄</span>
         </button>
-        <button @click="handleLogout" class="btn-action logout" title="Sair">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2"/>
-            <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2"/>
-            <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2"/>
-          </svg>
+        <button class="btn-action logout" @click="voltarParaDashboard">
+          <span>🚪</span>
         </button>
       </div>
     </header>
 
-    <!-- MAIN GRID -->
-    <main class="orders-grid-2025">
-      <!-- ORDER CARD -->
-      <article 
-        v-for="order in sortedOrders" 
+    <!-- ORDERS GRID -->
+    <div class="orders-grid-2025">
+      <!-- Loading State -->
+      <div v-if="loading && orders.length === 0" class="empty-state-2025">
+        <div class="loading-spinner-2025"></div>
+        <h3>Carregando pedidos...</h3>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else-if="orders.length === 0" class="empty-state-2025">
+        <div class="empty-icon">📋</div>
+        <h3>Nenhum pedido ativo</h3>
+        <p>Os pedidos aparecerão aqui quando chegarem</p>
+      </div>
+
+      <!-- Order Cards -->
+      <div
+        v-for="order in orders"
         :key="order.id"
-        class="order-card-2025"
-        :class="getCardClass(order)">
-        
-        <!-- CARD HEADER -->
+        :class="[
+          'order-card-2025',
+          `status-${order.status}`,
+          { urgent: order.isUrgent }
+        ]"
+      >
+        <!-- Card Header -->
         <div class="card-header-2025">
-          <div class="order-meta">
-            <div class="order-id">#{{ order.id }}</div>
-            <div class="order-time" :class="{ urgent: isUrgent(order.created_at) }">
-              {{ formatOrderTime(order.created_at) }}
-            </div>
+          <div class="order-number">#{{ order.id }}</div>
+          <div v-if="order.mesa_numero" class="order-table">
+            🪑 Mesa {{ order.mesa_numero }}
           </div>
-          <div class="table-info">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
-              <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" stroke-width="2"/>
-              <line x1="9" y1="21" x2="9" y2="9" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            Mesa {{ order.mesa_numero || 'Balcão' }}
+          <div :class="['order-time', { urgent: order.isUrgent }]">
+            {{ order.elapsedTime }}
           </div>
         </div>
 
-        <!-- ORDER ITEMS -->
+        <!-- Order Items -->
         <div class="order-items-2025">
-          <div v-for="(item, index) in order.items" :key="index" class="item-2025">
-            <span class="item-quantity">{{ item.quantity }}x</span>
-            <span class="item-name">{{ item.product_name }}</span>
-            <span class="item-dot" :style="{ backgroundColor: getItemColor(index) }"></span>
+          <div v-for="item in order.items" :key="item.id" class="item-2025">
+            <div class="item-quantity">{{ item.quantity }}x</div>
+            <div class="item-name">{{ item.product_name }}</div>
+            <div class="item-dot" :style="{ background: getItemColor(item) }"></div>
           </div>
         </div>
 
-        <!-- CARD FOOTER -->
+        <!-- Card Footer -->
         <div class="card-footer-2025">
-          <div class="status-tag" :class="getStatusClass(order.status)">
-            {{ getStatusLabel(order.status) }}
+          <div :class="['status-tag', `badge-${order.status}`]">
+            {{ statusLabels[order.status] }}
           </div>
-          <button 
-            @click.prevent.stop="nextStatus(order)"
-            class="action-btn-2025"
-            :class="getActionClass(order.status)"
-            :disabled="updatingOrder === order.id">
-            <span v-if="updatingOrder === order.id">
-              <div class="btn-spinner"></div>
-            </span>
-            <span v-else>{{ getActionLabel(order.status) }}</span>
+
+          <button
+            v-if="order.status === 'pending'"
+            class="action-btn-2025 action-start"
+            @click="startOrder(order.id)"
+            :disabled="processingOrders[order.id]"
+          >
+            <span v-if="processingOrders[order.id]" class="btn-spinner"></span>
+            <span v-else>▶️ Iniciar</span>
+          </button>
+
+          <button
+            v-else-if="order.status === 'active'"
+            class="action-btn-2025 action-finish"
+            @click="finishOrder(order.id)"
+            :disabled="processingOrders[order.id]"
+          >
+            <span v-if="processingOrders[order.id]" class="btn-spinner"></span>
+            <span v-else>✓ Finalizar</span>
+          </button>
+
+          <button
+            v-else-if="order.status === 'ready'"
+            class="action-btn-2025 action-complete"
+            @click="completeOrder(order.id)"
+            :disabled="processingOrders[order.id]"
+          >
+            <span v-if="processingOrders[order.id]" class="btn-spinner"></span>
+            <span v-else>✓ Entregar</span>
           </button>
         </div>
-      </article>
-
-      <!-- EMPTY STATE -->
-      <div v-if="sortedOrders.length === 0 && !loading" class="empty-state-2025">
-        <div class="empty-icon">🍽️</div>
-        <h3>Tudo em dia!</h3>
-        <p>Nenhum pedido ativo no momento</p>
       </div>
+    </div>
 
-      <!-- LOADING STATE -->
-      <div v-if="loading && sortedOrders.length === 0" class="empty-state-2025">
-        <div class="loading-spinner-2025"></div>
-        <p>Carregando pedidos...</p>
+    <!-- Toast Notification -->
+    <transition name="toast-2025">
+      <div v-if="toast.show" :class="['toast-2025', toast.type]">
+        <span class="toast-icon">{{ toast.icon }}</span>
+        <span>{{ toast.message }}</span>
       </div>
-    </main>
-
-    <!-- TOAST NOTIFICATION -->
-    <Transition name="toast-2025">
-      <div v-if="showToast" class="toast-2025" :class="toastType">
-        <div class="toast-icon">
-          <span v-if="toastType === 'success'">✓</span>
-          <span v-else-if="toastType === 'error'">⚠</span>
-          <span v-else>🔔</span>
-        </div>
-        {{ toastMessage }}
-      </div>
-    </Transition>
+    </transition>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
 import { supabase, TABLES } from '@/services/supabase'
 
 const router = useRouter()
-const userStore = useUserStore()
 
-const orders = ref([])
+// State
 const currentTime = ref('')
 const currentDate = ref('')
-const updatingOrder = ref(null)
+const orders = ref([])
 const loading = ref(false)
-const showToast = ref(false)
-const toastMessage = ref('')
-const toastType = ref('success')
-let realtimeChannel = null
-let timeInterval = null
-
-// Mapeamento de status do sistema para a cozinha
-const STATUS_MAP = {
-  'pending': 'Recebido',
-  'active': 'Em Preparo',
-  'ready': 'Pronto'
-}
-
-const REVERSE_STATUS_MAP = {
-  'Recebido': 'pending',
-  'Em Preparo': 'active',
-  'Pronto': 'ready'
-}
-
-// Função para gerar cores diferentes para cada item
-const getItemColor = (index) => {
-  const colors = [
-    '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444',
-    '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#6366f1'
-  ];
-  return colors[index % colors.length];
-}
-
-const stats = computed(() => ({
-  pending: orders.value.filter(o => o.status === 'Recebido').length,
-  preparing: orders.value.filter(o => o.status === 'Em Preparo').length,
-  ready: orders.value.filter(o => o.status === 'Pronto').length
-}))
-
-const sortedOrders = computed(() => {
-  return [...orders.value]
-    .filter(o => ['Recebido', 'Em Preparo', 'Pronto'].includes(o.status))
-    .sort((a, b) => {
-      // Ordenar por status priority
-      const priority = { 'Recebido': 1, 'Em Preparo': 2, 'Pronto': 3 }
-      if (priority[a.status] !== priority[b.status]) {
-        return priority[a.status] - priority[b.status]
-      }
-      // Depois por tempo (mais antigo primeiro)
-      return new Date(a.created_at) - new Date(b.created_at)
-    })
+const processingOrders = ref({})
+const toast = ref({
+  show: false,
+  type: 'info',
+  message: '',
+  icon: 'ℹ️'
 })
 
-const loadOrders = async () => {
-  try {
-    loading.value = true
-    console.log('🔄 Carregando pedidos da cozinha...')
+const statusLabels = {
+  pending: 'Novo',
+  active: 'Preparando',
+  ready: 'Pronto',
+  completed: 'Concluído',
+  cancelled: 'Cancelado'
+}
 
+// Computed
+const statusCounts = computed(() => {
+  return {
+    new: orders.value.filter(o => o.status === 'pending').length,
+    preparing: orders.value.filter(o => o.status === 'active').length,
+    ready: orders.value.filter(o => o.status === 'ready').length
+  }
+})
+
+// Methods
+const updateDateTime = () => {
+  const now = new Date()
+  currentTime.value = now.toLocaleTimeString('pt-BR', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    second: '2-digit'
+  })
+  currentDate.value = now.toLocaleDateString('pt-BR', { 
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+}
+
+const calculateElapsedTime = (createdAt) => {
+  const created = new Date(createdAt)
+  const now = new Date()
+  const diffMs = now - created
+  const diffMins = Math.floor(diffMs / 60000)
+  
+  if (diffMins < 1) return 'Agora'
+  if (diffMins < 60) return `${diffMins} min`
+  
+  const diffHours = Math.floor(diffMins / 60)
+  const remainingMins = diffMins % 60
+  return `${diffHours}h ${remainingMins}m`
+}
+
+const isOrderUrgent = (createdAt) => {
+  const created = new Date(createdAt)
+  const now = new Date()
+  const diffMs = now - created
+  const diffMins = Math.floor(diffMs / 60000)
+  return diffMins >= 15 // Urgente após 15 minutos
+}
+
+const getItemColor = (item) => {
+  const colors = ['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4']
+  const index = item.produto_id ? item.produto_id % colors.length : 0
+  return colors[index]
+}
+
+const fetchOrders = async () => {
+  loading.value = true
+  
+  try {
+    // Buscar pedidos ativos (pending, active, ready)
     const { data, error: fetchError } = await supabase
       .from(TABLES.PEDIDOS)
       .select(`
         *,
         pwa_mesas (
-          numero,
-          garcom_id
+          numero
         )
       `)
       .in('status', ['pending', 'active', 'ready'])
       .order('created_at', { ascending: true })
 
-    if (fetchError) {
-      console.error('❌ Erro ao buscar pedidos:', fetchError)
-      throw fetchError
-    }
+    if (fetchError) throw fetchError
 
-    console.log(`✅ ${data?.length || 0} pedidos encontrados`)
-
-    // Buscar IDs dos produtos para fazer lookup
+    // Buscar IDs dos produtos
     const allProductIds = new Set()
     data.forEach(order => {
       if (Array.isArray(order.itens)) {
@@ -235,316 +253,188 @@ const loadOrders = async () => {
         .select('id, nome')
         .in('id', Array.from(allProductIds))
 
-      if (productsError) {
-        console.error('⚠️ Erro ao buscar produtos:', productsError)
-      } else {
-        productsData?.forEach(product => {
+      if (!productsError && productsData) {
+        productsData.forEach(product => {
           productsMap[product.id] = product.nome
         })
       }
     }
 
-    // Mapear para formato da cozinha
+    // Processar pedidos
     orders.value = data.map(order => {
       const enrichedItems = (order.itens || []).map(item => ({
-        quantity: item.quantity || item.quantidade || 1,
-        product_name: productsMap[item.produto_id] || 'Produto removido',
-        price: item.preco_unitario || item.price || 0
+        ...item,
+        product_name: productsMap[item.produto_id] || 'Produto',
+        price: item.preco_unitario,
+        quantity: item.quantidade
       }))
 
       return {
-        id: order.id,
-        status: STATUS_MAP[order.status] || order.status,
+        ...order,
+        items: enrichedItems,
         mesa_numero: order.pwa_mesas?.numero,
-        mesa_id: order.mesa_id,
-        garcom_id: order.pwa_mesas?.garcom_id || order.garcom_id,
-        customer_name: order.customer_name,
-        created_at: order.created_at,
-        items: enrichedItems
+        elapsedTime: calculateElapsedTime(order.created_at),
+        isUrgent: isOrderUrgent(order.created_at),
+        // Mapear status do banco para status do KDS
+        status: order.status === 'cooking' ? 'active' : order.status
       }
     })
 
-    console.log('✅ Pedidos processados:', orders.value)
-
-  } catch (error) {
-    console.error('❌ Erro geral em loadOrders:', error)
-    showToastMessage('Erro ao carregar pedidos', 'error')
+  } catch (err) {
+    console.error('Erro ao buscar pedidos:', err)
+    showToast('error', 'Erro ao carregar pedidos', '❌')
   } finally {
     loading.value = false
   }
 }
 
-const nextStatus = async (order) => {
-  // Prevenir cliques múltiplos
-  if (updatingOrder.value) {
-    console.log('⏳ Já existe uma atualização em andamento')
-    return
-  }
+const refreshOrders = async () => {
+  if (loading.value) return
+  await fetchOrders()
+  showToast('success', 'Pedidos atualizados', '✓')
+}
 
-  const statusFlow = {
-    'Recebido': 'Em Preparo',
-    'Em Preparo': 'Pronto',
-    'Pronto': 'completed'
-  }
-
-  const newKitchenStatus = statusFlow[order.status]
-  if (!newKitchenStatus) {
-    console.log('❌ Status inválido:', order.status)
-    return
-  }
-
-  // Converter para status do banco
-  const newDbStatus = REVERSE_STATUS_MAP[newKitchenStatus] || newKitchenStatus
-
+const startOrder = async (orderId) => {
+  processingOrders.value[orderId] = true
   try {
-    updatingOrder.value = order.id
-    console.log(`🔄 Atualizando pedido ${order.id} para: ${newDbStatus}`)
-
     const { error: updateError } = await supabase
       .from(TABLES.PEDIDOS)
-      .update({ status: newDbStatus })
-      .eq('id', order.id)
+      .update({ status: 'active' })
+      .eq('id', orderId)
 
-    if (updateError) {
-      console.error('❌ Erro ao atualizar pedido:', updateError)
-      throw updateError
-    }
+    if (updateError) throw updateError
 
-    console.log(`✅ Pedido ${order.id} atualizado para: ${newDbStatus}`)
-    
-    // Atualizar localmente
-    order.status = newKitchenStatus
-    
-    const messages = {
-      'Em Preparo': '👨‍🍳 Preparo iniciado',
-      'Pronto': '✅ Pedido pronto!',
-      'completed': '🎉 Entregue'
-    }
-    
-    showToastMessage(messages[newKitchenStatus], 'success')
-
-    // Tocar som de sucesso
-    try {
-      new Audio('/success.mp3').play().catch(() => {})
-    } catch (e) {}
-
-    // Recarregar se for entregue (completed)
-    if (newDbStatus === 'completed') {
-      setTimeout(() => loadOrders(), 500)
-    }
-
-    // Registrar atividade
-    try {
-      await supabase.from('pwa_atividades').insert({
-        tipo: 'status_cozinha',
-        titulo: `Pedido #${order.id} - ${newKitchenStatus}`,
-        descricao: `Status alterado para: ${newKitchenStatus}`,
-        pedido_id: order.id,
-        mesa_id: order.mesa_id,
-        prioridade: newKitchenStatus === 'Pronto' ? 'alta' : 'normal'
-      })
-      console.log(`📝 Atividade registrada para pedido #${order.id}`)
-    } catch (logError) {
-      console.warn('⚠️ Erro ao registrar atividade:', logError)
-    }
-
+    await fetchOrders()
+    showToast('info', `Pedido #${orderId} iniciado`, '▶️')
   } catch (error) {
-    console.error('❌ Erro ao atualizar status:', error)
-    showToastMessage('❌ Erro ao atualizar pedido', 'error')
+    console.error('Erro ao iniciar pedido:', error)
+    showToast('error', 'Erro ao iniciar pedido', '❌')
   } finally {
-    updatingOrder.value = null
+    delete processingOrders.value[orderId]
   }
 }
 
-const getCardClass = (order) => {
-  const classes = []
-  
-  if (order.status === 'Recebido') classes.push('status-new')
-  if (order.status === 'Em Preparo') classes.push('status-cooking')
-  if (order.status === 'Pronto') classes.push('status-ready')
-  if (isUrgent(order.created_at)) classes.push('urgent')
-  
-  return classes.join(' ')
-}
+const finishOrder = async (orderId) => {
+  processingOrders.value[orderId] = true
+  try {
+    const { error: updateError } = await supabase
+      .from(TABLES.PEDIDOS)
+      .update({ status: 'ready' })
+      .eq('id', orderId)
 
-const getStatusClass = (status) => {
-  const classes = {
-    'Recebido': 'badge-new',
-    'Em Preparo': 'badge-cooking',
-    'Pronto': 'badge-ready'
-  }
-  return classes[status] || ''
-}
+    if (updateError) throw updateError
 
-const getStatusLabel = (status) => {
-  const labels = {
-    'Recebido': 'NOVO',
-    'Em Preparo': 'PREPARANDO',
-    'Pronto': 'PRONTO'
-  }
-  return labels[status] || status
-}
-
-const getActionClass = (status) => {
-  const classes = {
-    'Recebido': 'action-start',
-    'Em Preparo': 'action-finish',
-    'Pronto': 'action-deliver'
-  }
-  return classes[status] || ''
-}
-
-const getActionLabel = (status) => {
-  const labels = {
-    'Recebido': 'INICIAR',
-    'Em Preparo': 'FINALIZAR',
-    'Pronto': 'ENTREGAR'
-  }
-  return labels[status] || 'OK'
-}
-
-const formatOrderTime = (timestamp) => {
-  const diffMs = new Date() - new Date(timestamp)
-  const diffMins = Math.floor(diffMs / 60000)
-  
-  if (diffMins < 1) return '0m'
-  if (diffMins < 60) return `${diffMins}m`
-  
-  const hours = Math.floor(diffMins / 60)
-  const mins = diffMins % 60
-  return `${hours}h${mins}m`
-}
-
-const isUrgent = (timestamp) => {
-  const diffMins = Math.floor((new Date() - new Date(timestamp)) / 60000)
-  return diffMins > 15
-}
-
-const updateCurrentTime = () => {
-  const now = new Date()
-  currentTime.value = now.toLocaleTimeString('pt-BR', { 
-    hour: '2-digit', 
-    minute: '2-digit'
-  })
-  currentDate.value = now.toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long'
-  })
-}
-
-const showToastMessage = (message, type = 'success') => {
-  toastMessage.value = message
-  toastType.value = type
-  showToast.value = true
-  setTimeout(() => { showToast.value = false }, 3000)
-}
-
-const setupRealtime = () => {
-  console.log('👂 Configurando realtime para cozinha...')
-
-  realtimeChannel = supabase
-    .channel('kitchen-orders-realtime')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: TABLES.PEDIDOS
-      },
-      (payload) => {
-        console.log('🔔 Atualização recebida:', payload)
-        
-        if (payload.eventType === 'INSERT') {
-          const newOrder = payload.new
-          if (['pending', 'active', 'ready'].includes(newOrder.status)) {
-            showToastMessage('🔔 Novo pedido chegou!', 'info')
-            try {
-              new Audio('/notification.mp3').play().catch(() => {})
-            } catch (e) {
-              console.log('🔇 Áudio não disponível')
-            }
-            loadOrders()
-          }
-        } else if (payload.eventType === 'UPDATE') {
-          // Atualizar apenas se não foi essa instância que atualizou
-          if (updatingOrder.value !== payload.new.id) {
-            loadOrders()
-          }
-        }
-      }
-    )
-    .subscribe((status) => {
-      console.log('📡 Status realtime:', status)
-    })
-}
-
-const handleLogout = async () => {
-  if (confirm('Deseja sair?')) {
-    await userStore.logout()
-    router.push('/login')
+    await fetchOrders()
+    showToast('success', `Pedido #${orderId} pronto!`, '✓')
+  } catch (error) {
+    console.error('Erro ao finalizar pedido:', error)
+    showToast('error', 'Erro ao finalizar pedido', '❌')
+  } finally {
+    delete processingOrders.value[orderId]
   }
 }
+
+const completeOrder = async (orderId) => {
+  processingOrders.value[orderId] = true
+  try {
+    const { error: updateError } = await supabase
+      .from(TABLES.PEDIDOS)
+      .update({ status: 'completed' })
+      .eq('id', orderId)
+
+    if (updateError) throw updateError
+
+    await fetchOrders()
+    showToast('success', `Pedido #${orderId} entregue!`, '🎉')
+  } catch (error) {
+    console.error('Erro ao entregar pedido:', error)
+    showToast('error', 'Erro ao entregar pedido', '❌')
+  } finally {
+    delete processingOrders.value[orderId]
+  }
+}
+
+const showToast = (type, message, icon) => {
+  toast.value = { show: true, type, message, icon }
+  setTimeout(() => {
+    toast.value.show = false
+  }, 3000)
+}
+
+const voltarParaDashboard = () => {
+  router.back()
+}
+
+// Lifecycle
+let timeInterval
+let refreshInterval
 
 onMounted(() => {
-  console.log('🚀 Montando componente Cozinha...')
-  loadOrders()
-  setupRealtime()
-  updateCurrentTime()
-  timeInterval = setInterval(updateCurrentTime, 1000)
+  updateDateTime()
+  fetchOrders()
+  
+  // Atualizar relógio a cada segundo
+  timeInterval = setInterval(updateDateTime, 1000)
+  
+  // Atualizar pedidos a cada 10 segundos
+  refreshInterval = setInterval(fetchOrders, 10000)
+  
+  // Atualizar elapsed time a cada minuto
+  setInterval(() => {
+    orders.value.forEach(order => {
+      order.elapsedTime = calculateElapsedTime(order.created_at)
+      order.isUrgent = isOrderUrgent(order.created_at)
+    })
+  }, 60000)
 })
 
 onUnmounted(() => {
-  console.log('🔌 Desmontando componente Cozinha...')
-  if (realtimeChannel) {
-    supabase.removeChannel(realtimeChannel)
-  }
-  if (timeInterval) {
-    clearInterval(timeInterval)
-  }
+  if (timeInterval) clearInterval(timeInterval)
+  if (refreshInterval) clearInterval(refreshInterval)
 })
 </script>
 
 <style scoped>
-/* ===== VARIÁVEIS DE DESIGN 2025 ===== */
-:root {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-card: #ffffff;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
-  --border-light: #e2e8f0;
-  --border-medium: #cbd5e1;
-  --accent-new: #f59e0b;
-  --accent-preparing: #3b82f6;
-  --accent-ready: #10b981;
-  --accent-urgent: #ef4444;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* ===== BASE ===== */
 .kds-2025 {
   min-height: 100vh;
-  background: var(--bg-primary);
+  background: #000000;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  padding: 0;
+  color: #ffffff;
+  font-size: 16px;
 }
 
-/* ===== HEADER 2025 ===== */
+.orders-grid-2025::-webkit-scrollbar,
+.order-items-2025::-webkit-scrollbar {
+  width: 8px;
+}
+
+.orders-grid-2025::-webkit-scrollbar-thumb,
+.order-items-2025::-webkit-scrollbar-thumb {
+  background-color: #475569;
+  border-radius: 10px;
+}
+
+.orders-grid-2025::-webkit-scrollbar-track,
+.order-items-2025::-webkit-scrollbar-track {
+  background: #000000;
+}
+
 .kds-header-2025 {
-  background: var(--bg-secondary);
-  padding: 1rem 2rem;
+  background: #1e293b;
+  padding: 1.5rem 2rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--border-light);
-  box-shadow: var(--shadow-sm);
+  border-bottom: 2px solid #334155;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -553,64 +443,69 @@ onUnmounted(() => {
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 3rem;
 }
 
 .logo-wrapper {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .logo-icon {
-  font-size: 2rem;
-  background: linear-gradient(135deg, var(--accent-preparing), var(--accent-ready));
-  border-radius: var(--radius-md);
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1.8rem;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
 }
 
 .logo-text {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .logo-primary {
-  font-size: 1.25rem;
+  font-size: 1.8rem;
   font-weight: 800;
-  color: var(--text-primary);
+  color: #ffffff;
   letter-spacing: -0.5px;
 }
 
 .logo-secondary {
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: 1px;
+  color: #e2e8f0;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
 }
 
 .time-display {
   text-align: center;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #3b82f6;
 }
 
 .time {
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #ffffff;
   font-feature-settings: "tnum";
 }
 
 .date {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
+  font-size: 0.9rem;
+  color: #e2e8f0;
   font-weight: 500;
 }
 
-/* STATUS INDICATORS */
 .status-indicators {
   display: flex;
   gap: 2rem;
@@ -624,92 +519,112 @@ onUnmounted(() => {
 }
 
 .indicator-badge {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-lg);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 1.125rem;
-  /* CORRIGIDO: Mudar a cor do texto para escuro nos badges claros */
-  color: #1a1a1a; /* Texto escuro para contraste */
+  font-size: 1.4rem;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+  border: 3px solid rgba(255, 255, 255, 0.2);
 }
 
 .indicator.new .indicator-badge {
-  background: var(--accent-new);
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
 }
 
 .indicator.preparing .indicator-badge {
-  background: var(--accent-preparing);
+  background: linear-gradient(135deg, #0ea5e9, #0369a1);
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
 }
 
 .indicator.ready .indicator-badge {
-  background: var(--accent-ready);
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
 }
 
 .indicator span {
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .header-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .btn-action {
-  width: 48px;
-  height: 48px;
-  background: var(--bg-primary);
-  border: 1.5px solid var(--border-light);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  width: 52px;
+  height: 52px;
+  background: #1e293b;
+  border: 2px solid #475569;
+  border-radius: 12px;
+  color: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .btn-action:hover:not(:disabled) {
-  background: var(--bg-card);
-  border-color: var(--border-medium);
-  color: var(--text-primary);
-  transform: translateY(-1px);
+  background: #3b82f6;
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
 }
 
 .btn-action.refresh:hover:not(:disabled) {
-  border-color: var(--accent-preparing);
-  color: var(--accent-preparing);
+  background: #0ea5e9;
+  border-color: #0ea5e9;
 }
 
 .btn-action.logout:hover:not(:disabled) {
-  border-color: var(--accent-urgent);
-  color: var(--accent-urgent);
+  background: #ef4444;
+  border-color: #ef4444;
 }
 
-/* ===== ORDERS GRID 2025 ===== */
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .orders-grid-2025 {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 1.5rem;
   padding: 2rem;
-  max-width: 1400px;
+  max-width: 1920px;
   margin: 0 auto;
 }
 
-/* ===== ORDER CARD 2025 ===== */
 .order-card-2025 {
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
+  background: #1e293b;
+  border-radius: 16px;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  border: 1.5px solid var(--border-light);
-  box-shadow: var(--shadow-sm);
+  gap: 1.25rem;
+  border: 2px solid #334155;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
@@ -721,102 +636,101 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
-  background: var(--border-light);
+  height: 6px;
+  background: #334155;
   transition: all 0.3s ease;
 }
 
-.order-card-2025.status-new::before {
-  background: linear-gradient(90deg, var(--accent-new), #fbbf24);
+.order-card-2025.status-pending::before {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
 }
 
-.order-card-2025.status-cooking::before {
-  background: linear-gradient(90deg, var(--accent-preparing), #60a5fa);
+.order-card-2025.status-active::before {
+  background: linear-gradient(135deg, #0ea5e9, #0369a1);
 }
 
 .order-card-2025.status-ready::before {
-  background: linear-gradient(90deg, var(--accent-ready), #34d399);
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.order-card-2025.urgent {
+  border-color: #ef4444;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
 }
 
 .order-card-2025.urgent::before {
-  background: linear-gradient(90deg, var(--accent-urgent), #f87171);
-  animation: urgentGlow 2s ease-in-out infinite;
+  background: #ef4444;
+  animation: urgentPulse 1.5s infinite alternate;
+}
+
+@keyframes urgentPulse {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
 }
 
 .order-card-2025:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--border-medium);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  border-color: #475569;
+  background: #334155;
 }
 
-@keyframes urgentGlow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-/* CARD HEADER */
 .card-header-2025 {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #334155;
 }
 
-.order-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.order-id {
-  font-size: 1.5rem;
+.order-number {
+  font-size: 1.8rem;
   font-weight: 800;
-  color: var(--text-primary);
+  color: #ffffff;
   letter-spacing: -0.5px;
+  flex-grow: 1;
 }
 
-.order-time {
-  padding: 0.375rem 0.75rem;
-  background: var(--bg-primary);
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-  font-feature-settings: "tnum";
-  border: 1px solid var(--border-light);
-}
-
-.order-time.urgent {
-  background: var(--accent-urgent);
-  color: white;
-  border-color: var(--accent-urgent);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-
-.table-info {
+.order-table {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--bg-primary);
-  border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem;
+  background: rgba(59, 130, 246, 0.15);
+  border: 2px solid #3b82f6;
+  border-radius: 8px;
   font-weight: 700;
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  border: 1px solid var(--border-light);
+  font-size: 0.9rem;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-/* ORDER ITEMS */
+.order-time {
+  padding: 0.5rem 1rem;
+  background: rgba(59, 130, 246, 0.15);
+  border: 2px solid #475569;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffffff;
+  font-feature-settings: "tnum";
+}
+
+.order-time.urgent {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: white;
+  font-weight: 800;
+  animation: urgentPulse 1.5s infinite alternate;
+}
+
 .order-items-2025 {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  max-height: 200px;
+  max-height: 400px;
   overflow-y: auto;
   padding-right: 0.5rem;
 }
@@ -824,301 +738,268 @@ onUnmounted(() => {
 .item-2025 {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: var(--bg-primary);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-light);
-  position: relative;
+  gap: 1rem;
+  padding: 1rem;
+  background: #000000;
+  border-radius: 8px;
+  border-left: 4px solid #475569;
   transition: all 0.2s ease;
 }
 
 .item-2025:hover {
-  border-color: var(--border-medium);
-  transform: translateX(2px);
+  border-left-color: #3b82f6;
+  background: #334155;
+  transform: translateX(3px);
 }
 
 .item-quantity {
-  background: var(--text-primary);
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
   font-weight: 800;
-  font-size: 0.75rem;
-  min-width: 28px;
+  font-size: 0.9rem;
+  min-width: 36px;
   text-align: center;
   font-feature-settings: "tnum";
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .item-name {
-  color: var(--text-primary);
+  color: #ffffff;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   flex: 1;
 }
 
 .item-dot {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
 }
 
-/* CARD FOOTER */
 .card-footer-2025 {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   margin-top: auto;
+  padding-top: 1rem;
+  border-top: 2px solid #334155;
 }
 
 .status-tag {
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-lg);
-  font-weight: 800;
-  font-size: 0.75rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.85rem;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+  min-width: 110px;
+  text-align: center;
+  border: 2px solid;
 }
 
-.status-tag.badge-new {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--accent-new);
-  border: 1.5px solid var(--accent-new);
+.status-tag.badge-pending {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  border-color: #3b82f6;
 }
 
-.status-tag.badge-cooking {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--accent-preparing);
-  border: 1.5px solid var(--accent-preparing);
+.status-tag.badge-active {
+  background: rgba(14, 165, 233, 0.2);
+  color: #0ea5e9;
+  border-color: #0ea5e9;
 }
 
 .status-tag.badge-ready {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--accent-ready);
-  border: 1.5px solid var(--accent-ready);
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border-color: #10b981;
 }
 
 .action-btn-2025 {
   flex: 1;
-  padding: 0.875rem 1.5rem;
+  padding: 1rem 1.5rem;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 12px;
   font-weight: 800;
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   letter-spacing: 0.5px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   text-transform: uppercase;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 44px;
+  min-height: 52px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border: 2px solid transparent;
 }
 
 .action-btn-2025:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
+  box-shadow: none;
 }
 
 .action-btn-2025:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 .action-btn-2025.action-start {
-  background: var(--accent-new);
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   color: white;
+  border-color: #3b82f6;
 }
 
-.action-btn-2025.action-start:not(:disabled):hover {
-  background: #eab308;
+.action-btn-2025.action-start:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
 }
 
 .action-btn-2025.action-finish {
-  background: var(--accent-preparing);
+  background: linear-gradient(135deg, #0ea5e9, #0369a1);
   color: white;
+  border-color: #0ea5e9;
 }
 
-.action-btn-2025.action-finish:not(:disabled):hover {
-  background: #2563eb;
+.action-btn-2025.action-finish:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.5);
 }
 
-.action-btn-2025.action-deliver {
-  background: var(--accent-ready);
+.action-btn-2025.action-complete {
+  background: linear-gradient(135deg, #10b981, #059669);
   color: white;
+  border-color: #10b981;
 }
 
-.action-btn-2025.action-deliver:not(:disabled):hover {
-  background: #059669;
+.action-btn-2025.action-complete:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
 }
 
 .btn-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid transparent;
-  border-top-color: currentColor;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid #fff;
   border-radius: 50%;
+  width: 20px;
+  height: 20px;
   animation: spin 1s linear infinite;
 }
 
-/* ===== EMPTY STATE ===== */
+.loading-spinner-2025 {
+  border: 4px solid #334155;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
 .empty-state-2025 {
   grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem 2rem;
   text-align: center;
-  color: var(--text-secondary);
+  padding: 4rem 2rem;
+  color: #e2e8f0;
 }
 
 .empty-icon {
   font-size: 4rem;
   margin-bottom: 1rem;
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 .empty-state-2025 h3 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #ffffff;
   margin-bottom: 0.5rem;
 }
 
-.loading-spinner-2025 {
-  width: 48px;
-  height: 48px;
-  border: 3px solid var(--border-light);
-  border-top-color: var(--accent-preparing);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+.empty-state-2025 p {
+  font-size: 1rem;
+  color: #e2e8f0;
 }
 
-/* ===== TOAST 2025 ===== */
 .toast-2025 {
   position: fixed;
   bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--text-primary);
-  color: white;
+  right: 2rem;
   padding: 1rem 1.5rem;
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
+  color: white;
   font-weight: 600;
-  box-shadow: var(--shadow-lg);
-  z-index: 1000;
-  min-width: 300px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  backdrop-filter: blur(10px);
+  z-index: 1000;
+  border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .toast-2025.success {
-  background: var(--accent-ready);
+  background: #10b981;
+  border-color: #10b981;
 }
 
 .toast-2025.error {
-  background: var(--accent-urgent);
+  background: #ef4444;
+  border-color: #ef4444;
 }
 
 .toast-2025.info {
-  background: var(--accent-preparing);
+  background: #0ea5e9;
+  border-color: #0ea5e9;
 }
 
 .toast-icon {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
 }
 
-.toast-2025-enter-active, .toast-2025-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.toast-2025-enter-active,
+.toast-2025-leave-active {
+  transition: all 0.5s ease;
 }
 
-.toast-2025-enter-from, .toast-2025-leave-to {
+.toast-2025-enter-from,
+.toast-2025-leave-to {
   opacity: 0;
-  transform: translate(-50%, 20px);
+  transform: translateY(20px);
 }
 
-/* ===== SCROLLBAR ===== */
-.order-items-2025::-webkit-scrollbar {
-  width: 6px;
-}
-
-.order-items-2025::-webkit-scrollbar-track {
-  background: var(--border-light);
-  border-radius: 3px;
-}
-
-.order-items-2025::-webkit-scrollbar-thumb {
-  background: var(--border-medium);
-  border-radius: 3px;
-}
-
-.order-items-2025::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-/* ===== ANIMAÇÕES ===== */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-/* ===== RESPONSIVE ===== */
 @media (max-width: 1200px) {
   .orders-grid-2025 {
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    padding: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   }
 }
 
 @media (max-width: 768px) {
   .kds-header-2025 {
-    flex-wrap: wrap;
-    gap: 1rem;
     padding: 1rem;
+    flex-direction: column;
+    gap: 1rem;
   }
   
   .header-brand {
     width: 100%;
     justify-content: space-between;
+    gap: 1rem;
   }
   
   .status-indicators {
     width: 100%;
     justify-content: space-around;
-  }
-  
-  .header-actions {
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    flex-direction: column;
-    z-index: 90;
+    gap: 1rem;
   }
   
   .orders-grid-2025 {
-    grid-template-columns: 1fr;
     padding: 1rem;
-    margin-bottom: 4rem;
-  }
-  
-  .card-footer-2025 {
-    flex-direction: column;
-  }
-  
-  .action-btn-2025 {
-    width: 100%;
+    grid-template-columns: 1fr;
   }
 }
 </style>
