@@ -406,12 +406,18 @@ export const useUserStore = defineStore('user', {
         }
 
         console.log('✅ Login bem-sucedido para:', email)
+        
+        // ✅ Buscar profile DIRETAMENTE ao invés de esperar o listener
+        if (data.user) {
+          this.currentUser = data.user
+          await this.fetchProfile(data.user)
+        }
 
-await new Promise(resolve => setTimeout(resolve, 1000))
-this.updateConnectionStatus()
+        this.updateConnectionStatus()
 
-// ✅ RETORNAR ROLE PARA REDIRECIONAMENTO
-return this.profile?.role
+        // ✅ RETORNAR ROLE PARA REDIRECIONAMENTO
+        console.log('🎯 Retornando role:', this.profile?.role)
+        return this.profile?.role
       } catch (error) {
         console.error('❌ Erro no login:', error)
         
