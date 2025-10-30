@@ -3,6 +3,9 @@
     <!-- Componente de Status Online/Offline -->
     <OnlineStatus />
 
+    <!-- ✅ COMPONENTE DE NOTIFICAÇÕES GLOBAL -->
+    <NotificationToast v-if="userStore.isAuthenticated" />
+
     <!-- TELA DE CARREGAMENTO -->
     <div v-if="isLoading" class="loading-screen">
       <div class="loading-spinner"></div>
@@ -81,17 +84,22 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useRoute } from 'vue-router'
+import { useNotifications } from '@/composables/useNotifications'
 import TheHeader from './components/TheHeader.vue'
 import Navigation from './components/Navigation.vue'
 import BottomNav from './components/BottomNav.vue'
 import OnlineStatus from './components/OnlineStatus.vue'
+import NotificationToast from './components/NotificationToast.vue'
 
 const userStore = useUserStore()
 const route = useRoute()
 const showEmergencyButton = ref(false)
+
+// ✅ INICIALIZAR SISTEMA DE NOTIFICAÇÕES
+const { initialize, cleanup } = useNotifications()
 
 onMounted(async () => {
   console.log('🎯 App.vue montado, iniciando auth...')
@@ -99,6 +107,12 @@ onMounted(async () => {
   if (!userStore.authInitialized && !userStore.authLoading) {
     try {
       await userStore.initAuth()
+      
+      // ✅ Inicializar notificações após autenticação
+      if (userStore.isAuthenticated) {
+        console.log('✅ Inicializando sistema de notificações...')
+        initialize()
+      }
     } catch (error) {
       console.error('❌ Erro ao inicializar auth no App.vue:', error)
     }
@@ -109,6 +123,11 @@ onMounted(async () => {
       showEmergencyButton.value = true
     }
   }, 10000)
+})
+
+onUnmounted(() => {
+  // ✅ Limpar notificações ao desmontar
+  cleanup()
 })
 
 const isLoading = computed(() => userStore.authLoading)
@@ -146,6 +165,7 @@ function forceReload() {
   window.location.reload()
 }
 </script>
+
 <style scoped>
 #app {
   min-height: 100vh;
