@@ -53,6 +53,7 @@
             <option value="gerente">Gerente</option>
             <option value="garcom">Garçom</option>
             <option value="caixa">Caixa</option>
+            <option value="cozinha">Cozinha</option>
           </select>
           <select v-model="filterStatus" class="filter-select">
             <option value="">Todos os Status</option>
@@ -184,6 +185,7 @@
               <option value="gerente">Gerente</option>
               <option value="garcom">Garçom</option>
               <option value="caixa">Caixa</option>
+              <option value="cozinha">Cozinha</option>
             </select>
           </div>
 
@@ -280,7 +282,8 @@ const getRoleColor = (role) => {
     admin: 'linear-gradient(135deg, #C41E3A, #FF6B35)',
     gerente: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
     garcom: 'linear-gradient(135deg, #10b981, #059669)',
-    caixa: 'linear-gradient(135deg, #f59e0b, #d97706)'
+    caixa: 'linear-gradient(135deg, #f59e0b, #d97706)',
+    cozinha: 'linear-gradient(135deg, #667eea, #764ba2)'
   }
   return colors[role] || 'linear-gradient(135deg, #6b7280, #4b5563)'
 }
@@ -290,7 +293,8 @@ const getRoleLabel = (role) => {
     admin: 'Admin',
     gerente: 'Gerente',
     garcom: 'Garçom',
-    caixa: 'Caixa'
+    caixa: 'Caixa',
+    cozinha: 'Cozinha'
   }
   return labels[role] || role
 }
@@ -822,6 +826,14 @@ onMounted(() => {
 
 .user-badge.caixa {
   background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+.user-badge.caixa {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+/* ✅ NOVO - Badge Cozinha */
+.user-badge.cozinha {
+  background: linear-gradient(135deg, #667eea, #764ba2);
 }
 
 /* Detalhes compactos */
