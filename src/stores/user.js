@@ -1,4 +1,3 @@
-// stores/user.js
 import { defineStore } from 'pinia'
 import { supabase, TABLES } from '@/services/supabase'
 import { syncService } from '@/services/syncService'
