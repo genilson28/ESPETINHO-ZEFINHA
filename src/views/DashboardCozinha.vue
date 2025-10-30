@@ -14,8 +14,8 @@
       </div>
 
       <div class="header-right">
-        <button @click="loadOrders" class="btn-refresh" title="Atualizar">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button @click="loadOrders" class="btn-refresh" title="Atualizar" :disabled="loading">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ spinning: loading }">
             <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
           </svg>
         </button>
@@ -73,24 +73,31 @@
 
         <!-- BOTÃO DE AÇÃO -->
         <button 
-          @click="nextStatus(order)"
+          @click.prevent.stop="nextStatus(order)"
           class="action-btn-pro"
           :class="getActionClass(order.status)"
           :disabled="updatingOrder === order.id">
-          {{ getActionLabel(order.status) }}
+          <span v-if="updatingOrder === order.id">⏳ Atualizando...</span>
+          <span v-else>{{ getActionLabel(order.status) }}</span>
         </button>
       </div>
 
       <!-- EMPTY STATE -->
-      <div v-if="sortedOrders.length === 0" class="empty-pro">
+      <div v-if="sortedOrders.length === 0 && !loading" class="empty-pro">
         <div class="empty-icon">✓</div>
         <p>Nenhum pedido ativo</p>
+      </div>
+
+      <!-- LOADING STATE -->
+      <div v-if="loading && sortedOrders.length === 0" class="empty-pro">
+        <div class="loading-spinner"></div>
+        <p>Carregando pedidos...</p>
       </div>
     </div>
 
     <!-- TOAST -->
     <Transition name="toast">
-      <div v-if="showToast" class="toast-pro">
+      <div v-if="showToast" class="toast-pro" :class="toastType">
         {{ toastMessage }}
       </div>
     </Transition>
@@ -109,8 +116,10 @@ const userStore = useUserStore()
 const orders = ref([])
 const currentTime = ref('')
 const updatingOrder = ref(null)
+const loading = ref(false)
 const showToast = ref(false)
 const toastMessage = ref('')
+const toastType = ref('success')
 let realtimeChannel = null
 let timeInterval = null
 
@@ -149,6 +158,7 @@ const sortedOrders = computed(() => {
 
 const loadOrders = async () => {
   try {
+    loading.value = true
     console.log('🔄 Carregando pedidos da cozinha...')
 
     const { data, error: fetchError } = await supabase
@@ -156,7 +166,8 @@ const loadOrders = async () => {
       .select(`
         *,
         pwa_mesas (
-          numero
+          numero,
+          garcom_id
         )
       `)
       .in('status', ['pending', 'active', 'ready'])
@@ -208,6 +219,8 @@ const loadOrders = async () => {
         id: order.id,
         status: STATUS_MAP[order.status] || order.status,
         mesa_numero: order.pwa_mesas?.numero,
+        mesa_id: order.mesa_id,
+        garcom_id: order.pwa_mesas?.garcom_id || order.garcom_id,
         customer_name: order.customer_name,
         created_at: order.created_at,
         items: enrichedItems
@@ -218,11 +231,19 @@ const loadOrders = async () => {
 
   } catch (error) {
     console.error('❌ Erro geral em loadOrders:', error)
-    showToastMessage('Erro ao carregar pedidos')
+    showToastMessage('Erro ao carregar pedidos', 'error')
+  } finally {
+    loading.value = false
   }
 }
 
 const nextStatus = async (order) => {
+  // Prevenir cliques múltiplos
+  if (updatingOrder.value) {
+    console.log('⏳ Já existe uma atualização em andamento')
+    return
+  }
+
   const statusFlow = {
     'Recebido': 'Em Preparo',
     'Em Preparo': 'Pronto',
@@ -230,7 +251,10 @@ const nextStatus = async (order) => {
   }
 
   const newKitchenStatus = statusFlow[order.status]
-  if (!newKitchenStatus) return
+  if (!newKitchenStatus) {
+    console.log('❌ Status inválido:', order.status)
+    return
+  }
 
   // Converter para status do banco
   const newDbStatus = REVERSE_STATUS_MAP[newKitchenStatus] || newKitchenStatus
@@ -239,43 +263,53 @@ const nextStatus = async (order) => {
     updatingOrder.value = order.id
     console.log(`🔄 Atualizando pedido ${order.id} para: ${newDbStatus}`)
 
-    const { error: updateError } = await supabase
+    const { data, error: updateError } = await supabase
       .from(TABLES.PEDIDOS)
       .update({ 
         status: newDbStatus,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        updated_by: userStore.profile?.user_id
       })
       .eq('id', order.id)
+      .select()
+      .single()
 
     if (updateError) {
       console.error('❌ Erro ao atualizar:', updateError)
       throw updateError
     }
 
-    console.log(`✅ Pedido ${order.id} atualizado para ${newDbStatus}`)
+    console.log(`✅ Pedido ${order.id} atualizado:`, data)
     
     // Atualizar localmente
     order.status = newKitchenStatus
     
     const messages = {
-      'Em Preparo': 'Preparo iniciado',
-      'Pronto': 'Pedido pronto!',
-      'completed': 'Entregue'
+      'Em Preparo': '👨‍🍳 Preparo iniciado',
+      'Pronto': '✅ Pedido pronto!',
+      'completed': '🎉 Entregue'
     }
     
-    showToastMessage(messages[newKitchenStatus])
+    showToastMessage(messages[newKitchenStatus], 'success')
+
+    // Tocar som de sucesso
+    try {
+      new Audio('/success.mp3').play().catch(() => {})
+    } catch (e) {}
 
     // Recarregar se for entregue (completed)
     if (newDbStatus === 'completed') {
       setTimeout(() => loadOrders(), 500)
     }
 
+    // Registrar log
     if (userStore.profile?.id) {
       await userStore.logAction('update_order_status', `#${order.id} → ${newKitchenStatus}`)
     }
+
   } catch (error) {
     console.error('❌ Erro ao atualizar status:', error)
-    showToastMessage('Erro ao atualizar pedido')
+    showToastMessage('❌ Erro ao atualizar pedido', 'error')
   } finally {
     updatingOrder.value = null
   }
@@ -352,10 +386,11 @@ const updateCurrentTime = () => {
   })
 }
 
-const showToastMessage = (message) => {
+const showToastMessage = (message, type = 'success') => {
   toastMessage.value = message
+  toastType.value = type
   showToast.value = true
-  setTimeout(() => { showToast.value = false }, 2000)
+  setTimeout(() => { showToast.value = false }, 3000)
 }
 
 const setupRealtime = () => {
@@ -376,7 +411,7 @@ const setupRealtime = () => {
         if (payload.eventType === 'INSERT') {
           const newOrder = payload.new
           if (['pending', 'active', 'ready'].includes(newOrder.status)) {
-            showToastMessage('🔔 Novo pedido!')
+            showToastMessage('🔔 Novo pedido chegou!', 'info')
             try {
               new Audio('/notification.mp3').play().catch(() => {})
             } catch (e) {
@@ -385,7 +420,10 @@ const setupRealtime = () => {
             loadOrders()
           }
         } else if (payload.eventType === 'UPDATE') {
-          loadOrders()
+          // Atualizar apenas se não foi essa instância que atualizou
+          if (updatingOrder.value !== payload.new.id) {
+            loadOrders()
+          }
         }
       }
     )
@@ -515,12 +553,26 @@ onUnmounted(() => {
   transition: all 0.2s;
 }
 
-.btn-refresh:hover {
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-refresh:hover:not(:disabled) {
   background: #3b82f6;
 }
 
 .btn-logout:hover {
   background: #ef4444;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* ===== GRID ===== */
@@ -744,19 +796,42 @@ onUnmounted(() => {
   opacity: 0.5;
 }
 
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #10b981;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
 /* ===== TOAST ===== */
 .toast-pro {
   position: fixed;
   bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
-  background: #10b981;
   color: white;
   padding: 1rem 2rem;
   border-radius: 8px;
   font-weight: 800;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   z-index: 1000;
+  min-width: 300px;
+  text-align: center;
+}
+
+.toast-pro.success {
+  background: #10b981;
+}
+
+.toast-pro.error {
+  background: #ef4444;
+}
+
+.toast-pro.info {
+  background: #3b82f6;
 }
 
 .toast-enter-active, .toast-leave-active {
