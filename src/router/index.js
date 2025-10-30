@@ -34,9 +34,10 @@ import QRCodeGenerator from '@/views/staff/QRCodeGenerator.vue'
 import StaffOrdersView from '@/views/staff/StaffOrdersView.vue'
 
 // ============================================
-// ✅ NOVO - DASHBOARD DO GARÇOM
+// IMPORTAÇÕES - DASHBOARDS
 // ============================================
 import DashboardGarcom from '@/views/DashboardGarcom.vue'
+import DashboardCozinha from '@/views/DashboardCozinha.vue' // ✅ NOVO
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -45,7 +46,6 @@ const router = createRouter({
     // ROTAS PÚBLICAS
     // ============================================
     
-    // Página não autorizada
     {
       path: '/unauthorized',
       name: 'unauthorized',
@@ -53,7 +53,6 @@ const router = createRouter({
       meta: { requiresAuth: false }
     },
     
-    // Login
     { 
       path: '/login', 
       name: 'login', 
@@ -65,7 +64,6 @@ const router = createRouter({
     // ROTAS DO CLIENTE (PÚBLICO - SEM AUTH)
     // ============================================
     
-    // Scanner de QR Code
     {
       path: '/qr-scanner',
       name: 'qr-scanner',
@@ -76,7 +74,6 @@ const router = createRouter({
       }
     },
 
-    // Cardápio do Cliente
     {
       path: '/client-menu/:tableId',
       name: 'client-menu',
@@ -87,7 +84,6 @@ const router = createRouter({
       }
     },
 
-    // Confirmação do Pedido
     {
       path: '/client-order/:tableId',
       name: 'client-order-confirm',
@@ -98,7 +94,6 @@ const router = createRouter({
       }
     },
 
-    // Acompanhar Pedido
     {
       path: '/order-tracking/:tableId',
       name: 'order-tracking',
@@ -110,8 +105,10 @@ const router = createRouter({
     },
 
     // ============================================
-    // DASHBOARD ADMIN (/)
+    // DASHBOARDS
     // ============================================
+    
+    // Admin Dashboard (/)
     { 
       path: '/', 
       name: 'home', 
@@ -122,9 +119,7 @@ const router = createRouter({
       } 
     },
 
-    // ============================================
-    // DASHBOARD GERENTE (/dashboard-gerente)
-    // ============================================
+    // Dashboard Gerente
     { 
       path: '/dashboard-gerente', 
       name: 'dashboard-gerente', 
@@ -135,9 +130,7 @@ const router = createRouter({
       } 
     },
 
-    // ============================================
-    // ✅ DASHBOARD GARÇOM (/dashboard-garcom)
-    // ============================================
+    // Dashboard Garçom
     { 
       path: '/dashboard-garcom', 
       name: 'dashboard-garcom', 
@@ -145,7 +138,19 @@ const router = createRouter({
       meta: { 
         requiresAuth: true,
         allowedRoles: ['garcom'],
-        hideMenu: true // ✅ Flag para esconder menu lateral
+        hideMenu: true
+      } 
+    },
+
+    // ✅ NOVO - Dashboard Cozinha
+    { 
+      path: '/dashboard-cozinha', 
+      name: 'dashboard-cozinha', 
+      component: DashboardCozinha, 
+      meta: { 
+        requiresAuth: true,
+        allowedRoles: ['cozinha'],
+        hideMenu: true
       } 
     },
 
@@ -153,18 +158,16 @@ const router = createRouter({
     // ROTAS DE MESAS E PEDIDOS
     // ============================================
 
-    // Visualizar Mesas (Admin, Gerente, Caixa)
     { 
       path: '/tables', 
       name: 'tables', 
       component: TablesView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'caixa','garcom'] 
+        allowedRoles: ['admin', 'gerente', 'caixa', 'garcom'] 
       } 
     },
 
-    // PDV - Ponto de Venda (✅ Garçom pode acessar)
     { 
       path: '/pdv', 
       name: 'pdv', 
@@ -172,44 +175,40 @@ const router = createRouter({
       meta: { 
         requiresAuth: true,
         allowedRoles: ['admin', 'gerente', 'garcom', 'caixa'],
-        hideMenu: true // ✅ Esconde menu para garçom
+        hideMenu: true
       }
     },
 
-    // Fechar Pedido/Comanda (✅ GARÇOM REMOVIDO)
     { 
       path: '/close-order/:idMesa', 
       name: 'closeOrder', 
       component: CloseOrderView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['caixa', 'admin', 'gerente'] // ✅ Sem garcom
+        allowedRoles: ['caixa', 'admin', 'gerente']
       }
     },
 
-    // Lista de Pedidos (Staff)
     { 
       path: '/orders', 
       name: 'orders', 
       component: OrdersView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'caixa'] // ✅ REMOVIDO garcom
+        allowedRoles: ['admin', 'gerente', 'caixa']
       } 
     },
 
-    // Pedidos Ativos (Staff)
     { 
       path: '/staff/orders', 
       name: 'staff-orders', 
       component: StaffOrdersView, 
       meta: { 
         requiresAuth: true,
-        allowedRoles: ['admin', 'gerente', 'caixa'] // ✅ REMOVIDO garcom
+        allowedRoles: ['admin', 'gerente', 'caixa']
       } 
     },
 
-    // Gerador de QR Codes
     { 
       path: '/qr-codes', 
       name: 'qr-generator', 
@@ -224,7 +223,6 @@ const router = createRouter({
     // ROTAS APENAS ADMIN
     // ============================================
 
-    // Estoque
     { 
       path: '/stock', 
       name: 'stock', 
@@ -235,7 +233,6 @@ const router = createRouter({
       } 
     },
 
-    // Menu/Cardápio (Gerenciamento)
     { 
       path: '/menu', 
       name: 'menu', 
@@ -246,7 +243,6 @@ const router = createRouter({
       } 
     },
 
-    // Produtos
     { 
       path: '/products', 
       name: 'products', 
@@ -257,7 +253,6 @@ const router = createRouter({
       } 
     },
 
-    // Usuários
     { 
       path: '/users', 
       name: 'users', 
@@ -268,7 +263,6 @@ const router = createRouter({
       } 
     },
 
-    // Relatórios
     { 
       path: '/reports', 
       name: 'reports', 
@@ -315,7 +309,6 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   
-  // ✅ AGUARDAR auth terminar (máximo 15 segundos)
   let attempts = 0
   const maxAttempts = 150
   
@@ -335,9 +328,6 @@ router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const allowedRoles = to.meta.allowedRoles
 
-  // ============================================
-  // ROTAS PÚBLICAS
-  // ============================================
   if (!requiresAuth) {
     if (to.path === '/login' && userStore.isAuthenticated) {
       return next(getHomeRoute(userStore.profile?.role))
@@ -345,9 +335,6 @@ router.beforeEach(async (to, from, next) => {
     return next()
   }
 
-  // ============================================
-  // VERIFICAR AUTENTICAÇÃO
-  // ============================================
   if (requiresAuth && !userStore.isAuthenticated) {
     console.log('❌ Não autenticado, redirecionando para login')
     return next({
@@ -356,23 +343,15 @@ router.beforeEach(async (to, from, next) => {
     })
   }
 
-  // ============================================
-  // VERIFICAR PERMISSÃO DE ROLE
-  // ============================================
   if (allowedRoles && userStore.isAuthenticated) {
     const userRole = userStore.profile?.role
     
-    if (!allowedRoles.includes(userRole)) {
+    if (userRole !== 'admin' && !allowedRoles.includes(userRole)) {
       console.warn(`❌ Acesso negado: "${userRole}" tentou acessar rota que requer: [${allowedRoles.join(', ')}]`)
-      
-      // Redireciona para o home apropriado do usuário
       return next(getHomeRoute(userRole))
     }
   }
 
-  // ============================================
-  // REGISTRAR LOG
-  // ============================================
   if (userStore.logAction && typeof userStore.logAction === 'function') {
     userStore.logAction('navigation', `Acessou: ${to.path}`).catch(err => {
       console.warn('⚠️ Erro ao registrar log de navegação:', err)
@@ -392,7 +371,9 @@ function getHomeRoute(role) {
     case 'gerente':
       return '/dashboard-gerente'
     case 'garcom':
-      return '/dashboard-garcom' // ✅ NOVA ROTA
+      return '/dashboard-garcom'
+    case 'cozinha': // ✅ NOVO
+      return '/dashboard-cozinha'
     case 'caixa':
       return '/tables'
     default:
