@@ -93,11 +93,9 @@ const userStore = useUserStore()
 const route = useRoute()
 const showEmergencyButton = ref(false)
 
-// ✅ CRÍTICO: Inicializar auth quando App monta
 onMounted(async () => {
   console.log('🎯 App.vue montado, iniciando auth...')
   
-  // Inicializar auth se ainda não foi inicializado
   if (!userStore.authInitialized && !userStore.authLoading) {
     try {
       await userStore.initAuth()
@@ -106,7 +104,6 @@ onMounted(async () => {
     }
   }
   
-  // Mostrar botão de emergência após 10 segundos de loading
   setTimeout(() => {
     if (userStore.authLoading) {
       showEmergencyButton.value = true
@@ -114,20 +111,20 @@ onMounted(async () => {
   }, 10000)
 })
 
-// ✅ Computed para verificar se está carregando
 const isLoading = computed(() => userStore.authLoading)
 
-// ✅ NOVO: Detectar se é garçom (layout especial sem nada)
+// ✅ NOVO: Detectar se é garçom OU cozinha (layout especial sem nada)
 const isGarcom = computed(() => {
   if (!userStore.isAuthenticated) return false
-  return userStore.profile?.role === 'garcom'
+  const role = userStore.profile?.role
+  return role === 'garcom' || role === 'cozinha' // ✅ ADICIONADO COZINHA
 })
 
 // Determina se deve usar layout mobile (SOMENTE CAIXA agora)
 const useMobileLayout = computed(() => {
   if (!userStore.isAuthenticated) return false
   const role = userStore.profile?.role
-  return role === 'caixa' // ✅ REMOVIDO garçom
+  return role === 'caixa'
 })
 
 // Determina se é gerente (layout sem sidebar)
@@ -138,7 +135,7 @@ const isGerente = computed(() => {
 
 // Determina se a página atual precisa ser full-width (sem padding)
 const isFullWidthPage = computed(() => {
-  const fullWidthRoutes = ['qr-codes', 'qr-generator', 'home', 'dashboard', 'dashboard-garcom']
+  const fullWidthRoutes = ['qr-codes', 'qr-generator', 'home', 'dashboard', 'dashboard-garcom', 'dashboard-cozinha'] // ✅ ADICIONADO
   return fullWidthRoutes.includes(route.name)
 })
 
@@ -149,7 +146,6 @@ function forceReload() {
   window.location.reload()
 }
 </script>
-
 <style scoped>
 #app {
   min-height: 100vh;
