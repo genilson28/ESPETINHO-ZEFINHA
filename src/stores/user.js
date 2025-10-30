@@ -406,10 +406,12 @@ export const useUserStore = defineStore('user', {
         }
 
         console.log('✅ Login bem-sucedido para:', email)
-        
-        await new Promise(resolve => setTimeout(resolve, 500))
-        this.updateConnectionStatus()
 
+await new Promise(resolve => setTimeout(resolve, 1000))
+this.updateConnectionStatus()
+
+// ✅ RETORNAR ROLE PARA REDIRECIONAMENTO
+return this.profile?.role
       } catch (error) {
         console.error('❌ Erro no login:', error)
         
