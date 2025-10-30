@@ -518,3 +518,144 @@ export const dashboardAPI = {
     }
   }
 }
+// ============================================
+// 🍳 KITCHEN API
+// ============================================
+export const kitchenAPI = {
+  /**
+   * Obter pedidos ativos para a cozinha
+   */
+  async getActiveOrders() {
+    try {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const { data, error } = await supabase
+        .from('pwa_orders')
+        .select(`
+          id,
+          customer_name,
+          total_price,
+          status,
+          created_at,
+          mesa_id
+        `)
+        .gte('created_at', today.toISOString())
+        .in('status', ['Recebido', 'Em Preparo', 'Pronto', 'Entregue'])
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+
+      // Buscar itens de cada pedido
+      const ordersWithItems = await Promise.all(
+        (data || []).map(async (order) => {
+          const { data: items } = await supabase
+            .from('order_items')
+            .select(`
+              id,
+              quantity,
+              price_at_sale,
+              product_id,
+              pwa_produtos(nome)
+            `)
+            .eq('order_id', order.id)
+
+          return {
+            ...order,
+            table_number: order.mesa_id || 'S/N',
+            items: (items || []).map(item => ({
+              id: item.id,
+              quantity: item.quantity,
+              product_name: item.pwa_produtos?.nome || 'Produto',
+              price: item.price_at_sale
+            }))
+          }
+        })
+      )
+
+      return ordersWithItems
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar pedidos da cozinha:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Atualizar status do pedido
+   */
+  async updateOrderStatus(orderId, newStatus) {
+    try {
+      const { data, error } = await supabase
+        .from('pwa_orders')
+        .update({ status: newStatus })
+        .eq('id', orderId)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      console.log('✅ Status atualizado:', orderId, '→', newStatus)
+      return data
+
+    } catch (error) {
+      console.error('❌ Erro ao atualizar status:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Obter estatísticas da cozinha
+   */
+  async getKitchenStats() {
+    try {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const { data, error } = await supabase
+        .from('pwa_orders')
+        .select('id, status')
+        .gte('created_at', today.toISOString())
+
+      if (error) throw error
+
+      const orders = data || []
+
+      return {
+        pending: orders.filter(o => o.status === 'Recebido').length,
+        preparing: orders.filter(o => o.status === 'Em Preparo').length,
+        ready: orders.filter(o => o.status === 'Pronto').length,
+        total: orders.length
+      }
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar estatísticas:', error)
+      return { pending: 0, preparing: 0, ready: 0, total: 0 }
+    }
+  },
+
+  /**
+   * Inscrever-se em mudanças em tempo real
+   */
+  subscribeToOrders(callback) {
+    const channel = supabase
+      .channel('kitchen-orders')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'pwa_orders' 
+        },
+        (payload) => {
+          console.log('🔄 Atualização em tempo real (cozinha):', payload)
+          callback(payload)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }
+}
