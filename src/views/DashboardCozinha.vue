@@ -273,7 +273,7 @@ const nextStatus = async (order) => {
       throw updateError
     }
 
-    console.log(`✅ Pedido ${order.id} atualizado:`, data)
+    console.log(`✅ Pedido ${order.id} atualizado para: ${newDbStatus}`)
     
     // Atualizar localmente
     order.status = newKitchenStatus
