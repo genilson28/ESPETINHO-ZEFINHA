@@ -262,20 +262,36 @@ const nextStatus = async (order) => {
   try {
     updatingOrder.value = order.id
     console.log(`🔄 Atualizando pedido ${order.id} para: ${newDbStatus}`)
+    console.log('📋 Dados do pedido:', order)
+    console.log('👤 User profile:', userStore.profile)
+
+    const updatePayload = { 
+      status: newDbStatus,
+      updated_at: new Date().toISOString()
+    }
+    
+    // Só adiciona updated_by se existir
+    if (userStore.profile?.user_id) {
+      updatePayload.updated_by = userStore.profile.user_id
+    }
+
+    console.log('📤 Payload de atualização:', updatePayload)
 
     const { data, error: updateError } = await supabase
       .from(TABLES.PEDIDOS)
-      .update({ 
-        status: newDbStatus,
-        updated_at: new Date().toISOString(),
-        updated_by: userStore.profile?.user_id
-      })
+      .update(updatePayload)
       .eq('id', order.id)
       .select()
       .single()
 
     if (updateError) {
       console.error('❌ Erro ao atualizar:', updateError)
+      console.error('❌ Detalhes completos:', JSON.stringify(updateError, null, 2))
+      console.error('❌ Dados enviados:', { 
+        status: newDbStatus, 
+        order_id: order.id,
+        updated_by: userStore.profile?.user_id 
+      })
       throw updateError
     }
 
