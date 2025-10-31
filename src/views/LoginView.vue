@@ -24,17 +24,19 @@ const handleLogin = async () => {
 
   try {
     await userStore.login(email.value, senha.value)
-    
+
     // Aguardar um pouco para garantir que o perfil foi carregado
     await new Promise(resolve => setTimeout(resolve, 800))
-    
+
     // Redirecionar baseado no role
     const userRole = userStore.profile?.role
-    
+
     if (userRole === 'admin' || userRole === 'gerente') {
       router.push('/')
     } else if (userRole === 'cozinha') {
       router.push('/dashboard-cozinha')  // 👈 LINHA ADICIONADA
+    } else if (userRole === 'garcom') {
+      router.push('/dashboard-garcom') // Adicionei o redirecionamento para garçom
     } else {
       router.push('/tables')
     }
