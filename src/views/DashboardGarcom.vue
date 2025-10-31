@@ -6,9 +6,7 @@
         <div class="flex items-center justify-between">
           <div>
             <h1 class="text-2xl font-bold text-gray-900">Mesas</h1>
-            <p class="text-sm text-gray-500 mt-1">
-              Olá, {{ userName }} 👋
-            </p>
+            <p class="text-sm text-gray-500 mt-1">Olá, {{ userName }} 👋</p>
           </div>
           
           <!-- Botão Sair -->
@@ -28,7 +26,7 @@
     <!-- Filtros e Stats -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <div class="flex items-center justify-between">
             <div>
