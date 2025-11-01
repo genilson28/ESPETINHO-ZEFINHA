@@ -156,9 +156,17 @@
 
         <div class="order-body">
           <div class="order-info">
-            <div class="info-row">
+            <!-- ✅ NOVO: Exibir nome do cliente com validação -->
+            <div class="info-row" :class="{ 'info-warning': !order.cliente_nome }">
               <User :size="16" />
-              <span>{{ order.customer_name || 'Cliente não informado' }}</span>
+              <span>{{ order.cliente_nome || 'Cliente não informado' }}</span>
+              <!-- ✅ Ícone de aviso se nome vazio -->
+              <AlertCircle 
+                v-if="!order.cliente_nome" 
+                :size="14" 
+                color="#f59e0b" 
+                style="margin-left: 0.25rem;"
+              />
             </div>
             <div class="info-row" v-if="order.mesa_numero">
               <Utensils :size="16" />
@@ -168,9 +176,10 @@
               <Clock :size="16" />
               <span>{{ formatTimeAgo(order.created_at) }}</span>
             </div>
-            <div class="info-row" v-if="order.customer_phone">
+            <!-- ✅ NOVO: Exibir email se houver -->
+            <div class="info-row" v-if="order.cliente_email">
               <Phone :size="16" />
-              <span>{{ order.customer_phone }}</span>
+              <span>{{ order.cliente_email }}</span>
             </div>
           </div>
 
@@ -286,14 +295,33 @@
         <div class="modal-body">
           <div class="detail-section">
             <h3>Informações do Cliente</h3>
-            <div class="detail-row">
+            
+            <!-- ✅ NOVO: Exibir nome com validação -->
+            <div class="detail-row" :class="{ 'detail-warning': !selectedOrder.cliente_nome }">
               <span class="detail-label">Nome:</span>
-              <span class="detail-value">{{ selectedOrder.customer_name || 'Não informado' }}</span>
+              <span class="detail-value">
+                {{ selectedOrder.cliente_nome || 'Não informado' }}
+                <AlertCircle 
+                  v-if="!selectedOrder.cliente_nome" 
+                  :size="14" 
+                  color="#f59e0b" 
+                  style="margin-left: 0.5rem; display: inline;"
+                />
+              </span>
             </div>
-            <div class="detail-row" v-if="selectedOrder.customer_phone">
-              <span class="detail-label">Telefone:</span>
-              <span class="detail-value">{{ selectedOrder.customer_phone }}</span>
+            
+            <!-- ✅ NOVO: Exibir email -->
+            <div class="detail-row" v-if="selectedOrder.cliente_email">
+              <span class="detail-label">Email:</span>
+              <span class="detail-value">{{ selectedOrder.cliente_email }}</span>
             </div>
+            
+            <!-- ✅ NOVO: Exibir UID (para debug) -->
+            <div class="detail-row" v-if="selectedOrder.cliente_uid">
+              <span class="detail-label">ID Cliente:</span>
+              <span class="detail-value detail-uid">{{ selectedOrder.cliente_uid.slice(0, 8) }}...</span>
+            </div>
+            
             <div class="detail-row" v-if="selectedOrder.mesa_numero">
               <span class="detail-label">Mesa:</span>
               <span class="detail-value">{{ selectedOrder.mesa_numero }}</span>
@@ -444,9 +472,9 @@ const filteredOrders = computed(() => {
     const query = searchQuery.value.toLowerCase()
     filtered = filtered.filter(o => 
       String(o.id).includes(query) ||
-      o.customer_name?.toLowerCase().includes(query) ||
+      o.cliente_nome?.toLowerCase().includes(query) ||
       String(o.mesa_numero).includes(query) ||
-      o.customer_phone?.includes(query)
+      o.cliente_email?.includes(query)
     )
   }
 
@@ -530,11 +558,16 @@ const getMoreItemsCount = (order) => {
   return (order.items?.length || 0) - 2
 }
 
+// ========================================
+// 📦 CARREGAR PEDIDOS (COM VALIDAÇÃO)
+// ========================================
 const fetchOrders = async () => {
   loading.value = true
   error.value = null
   
   try {
+    console.log('📦 Carregando pedidos...')
+    
     const { data, error: fetchError } = await supabase
       .from(TABLES.PEDIDOS)
       .select(`
@@ -546,6 +579,11 @@ const fetchOrders = async () => {
       .order('created_at', { ascending: false })
 
     if (fetchError) throw fetchError
+
+    console.log(`✅ ${data.length} pedidos carregados`)
+
+    // ✅ CONTADOR: Pedidos sem nome
+    let pedidosSemNome = 0
 
     // Buscar IDs dos produtos para fazer lookup
     const allProductIds = new Set()
@@ -565,7 +603,7 @@ const fetchOrders = async () => {
         .select('id, nome')
         .in('id', Array.from(allProductIds))
 
-      if (productsError) console.error('Erro ao buscar produtos:', productsError)
+      if (productsError) console.error('❌ Erro ao buscar produtos:', productsError)
       
       // Criar mapa de produtos para lookup rápido
       productsData?.forEach(product => {
@@ -574,11 +612,24 @@ const fetchOrders = async () => {
     }
 
     orders.value = data.map(order => {
+      // ✅ VERIFICAR NOME DO CLIENTE
+      if (!order.cliente_nome || order.cliente_nome.trim() === '') {
+        pedidosSemNome++
+        console.warn(`⚠️ Pedido #${order.id} sem nome do cliente:`, {
+          id: order.id,
+          mesa_id: order.mesa_id,
+          cliente_nome: order.cliente_nome,
+          cliente_email: order.cliente_email,
+          created_at: order.created_at
+        })
+      }
+
       // Enriquecer itens com nome do produto
       const enrichedItems = (order.itens || []).map(item => ({
         ...item,
         product_name: productsMap[item.produto_id] || 'Produto removido',
-        price: item.preco_unitario
+        price: item.preco_unitario,
+        quantity: item.quantidade
       }))
 
       return {
@@ -588,8 +639,15 @@ const fetchOrders = async () => {
       }
     })
 
+    // ✅ LOG FINAL
+    if (pedidosSemNome > 0) {
+      console.warn(`⚠️ ${pedidosSemNome} de ${data.length} pedidos SEM nome do cliente`)
+    } else {
+      console.log('✅ Todos os pedidos possuem nome do cliente')
+    }
+
   } catch (err) {
-    console.error('Erro ao buscar pedidos:', err)
+    console.error('❌ Erro ao buscar pedidos:', err)
     error.value = err.message
   } finally {
     loading.value = false
@@ -605,6 +663,12 @@ const refreshOrders = async () => {
 }
 
 const viewOrderDetails = (order) => {
+  console.log('👁️ Visualizando pedido:', {
+    id: order.id,
+    cliente_nome: order.cliente_nome,
+    cliente_email: order.cliente_email,
+    valor_total: order.valor_total
+  })
   selectedOrder.value = order
 }
 
@@ -614,6 +678,8 @@ const closeModal = () => {
 
 const startOrder = async (order) => {
   try {
+    console.log('▶️ Iniciando pedido:', order.id)
+    
     const { error: updateError } = await supabase
       .from(TABLES.PEDIDOS)
       .update({ status: 'active' })
@@ -621,15 +687,18 @@ const startOrder = async (order) => {
 
     if (updateError) throw updateError
 
+    console.log('✅ Pedido iniciado')
     await refreshOrders()
   } catch (err) {
-    console.error('Erro ao iniciar pedido:', err)
+    console.error('❌ Erro ao iniciar pedido:', err)
     alert('Erro ao iniciar pedido')
   }
 }
 
 const markAsReady = async (order) => {
   try {
+    console.log('✅ Marcando como pronto:', order.id)
+    
     const { error: updateError } = await supabase
       .from(TABLES.PEDIDOS)
       .update({ status: 'ready' })
@@ -637,15 +706,18 @@ const markAsReady = async (order) => {
 
     if (updateError) throw updateError
 
+    console.log('✅ Pedido marcado como pronto')
     await refreshOrders()
   } catch (err) {
-    console.error('Erro ao marcar como pronto:', err)
+    console.error('❌ Erro ao marcar como pronto:', err)
     alert('Erro ao atualizar pedido')
   }
 }
 
 const completeOrder = async (order) => {
   try {
+    console.log('🎉 Completando pedido:', order.id)
+    
     const { error: updateError } = await supabase
       .from(TABLES.PEDIDOS)
       .update({ status: 'completed' })
@@ -653,9 +725,10 @@ const completeOrder = async (order) => {
 
     if (updateError) throw updateError
 
+    console.log('✅ Pedido completado')
     await refreshOrders()
   } catch (err) {
-    console.error('Erro ao completar pedido:', err)
+    console.error('❌ Erro ao completar pedido:', err)
     alert('Erro ao completar pedido')
   }
 }
@@ -664,6 +737,8 @@ const cancelOrder = async (order) => {
   if (!confirm(`Deseja realmente cancelar o pedido #${order.id}?`)) return
 
   try {
+    console.log('❌ Cancelando pedido:', order.id)
+    
     const { error: updateError } = await supabase
       .from(TABLES.PEDIDOS)
       .update({ status: 'cancelled' })
@@ -671,20 +746,22 @@ const cancelOrder = async (order) => {
 
     if (updateError) throw updateError
 
+    console.log('✅ Pedido cancelado')
     await refreshOrders()
   } catch (err) {
-    console.error('Erro ao cancelar pedido:', err)
+    console.error('❌ Erro ao cancelar pedido:', err)
     alert('Erro ao cancelar pedido')
   }
 }
 
 // Lifecycle
 onMounted(() => {
+  console.log('📱 Orders view montada')
   fetchOrders()
 })
 
 onUnmounted(() => {
-  // Clean up
+  console.log('🧹 Orders view desmontada')
 })
 </script>
 
@@ -1078,6 +1155,12 @@ onUnmounted(() => {
   color: #6b7280;
 }
 
+/* ✅ NOVO: Estilo para aviso de nome vazio */
+.info-row.info-warning {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
 .order-items {
   display: flex;
   flex-direction: column;
@@ -1306,6 +1389,15 @@ onUnmounted(() => {
   border-bottom: 1px solid #f3f4f6;
 }
 
+/* ✅ NOVO: Estilo para aviso no modal */
+.detail-row.detail-warning {
+  background: #fef3c7;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border-bottom: none;
+  margin-bottom: 0.5rem;
+}
+
 .detail-label {
   font-weight: 500;
   color: #6b7280;
@@ -1313,6 +1405,14 @@ onUnmounted(() => {
 
 .detail-value {
   color: #1f2937;
+  display: flex;
+  align-items: center;
+}
+
+.detail-uid {
+  font-family: monospace;
+  font-size: 0.875rem;
+  color: #6b7280;
 }
 
 .items-table {
