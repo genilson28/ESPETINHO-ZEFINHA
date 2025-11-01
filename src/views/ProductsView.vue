@@ -19,6 +19,20 @@
           <div class="action-description">Cadastrar novo produto</div>
         </div>
       </button>
+      
+      <!-- ✅ NOVO: Botão de Gerenciar Categorias -->
+      <button class="action-btn action-btn-secondary" @click="openCategoriesModal">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"/>
+          <rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <div class="action-content">
+          <div class="action-label">Categorias</div>
+          <div class="action-description">Gerenciar categorias</div>
+        </div>
+      </button>
     </div>
 
     <!-- BARRA DE PESQUISA -->
@@ -73,6 +87,7 @@
       <div v-if="filteredProducts.length === 0" class="empty-state"><p>Nenhum produto encontrado</p></div>
     </div>
 
+    <!-- ===== MODAL DE PRODUTO ===== -->
     <div v-if="showModal" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
@@ -131,15 +146,17 @@
             <label>Nome do Produto *</label>
             <input v-model="formData.nome" type="text" placeholder="Ex: Espetinho de Carne" required />
           </div>
+          
           <div class="form-group">
             <label>Categoria *</label>
             <select v-model="formData.categoria" required>
               <option value="">Selecione</option>
-              <option value="espetinho">Espetinho</option>
-              <option value="bebida">Bebida</option>
-              <option value="acompanhamento">Acompanhamento</option>
+              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                {{ cat.emoji }} {{ cat.name }}
+              </option>
             </select>
           </div>
+          
           <div class="form-row">
             <div class="form-group">
               <label>Preço (R$) *</label>
@@ -163,6 +180,115 @@
           </div>
         </form>
         <p v-if="formError" class="form-error">{{ formError }}</p>
+      </div>
+    </div>
+
+    <!-- ===== MODAL DE CATEGORIAS ===== -->
+    <div v-if="showCategoriesModal" class="modal-overlay" @click="closeCategoriesModal">
+      <div class="modal-content modal-categories" @click.stop>
+        <div class="modal-header">
+          <h2>Gerenciar Categorias</h2>
+          <button class="modal-close" @click="closeCategoriesModal">✕</button>
+        </div>
+
+        <div class="categories-content">
+          <!-- Lista de Categorias -->
+          <div class="categories-list">
+            <div 
+              v-for="category in categories" 
+              :key="category.id"
+              class="category-item"
+              :class="{ 'editing': editingCategory?.id === category.id }"
+            >
+              <div v-if="editingCategory?.id !== category.id" class="category-display">
+                <div class="category-emoji">{{ category.emoji }}</div>
+                <div class="category-info">
+                  <div class="category-name">{{ category.name }}</div>
+                  <div class="category-id">ID: {{ category.id }}</div>
+                </div>
+                <div class="category-actions">
+                  <button @click="startEditCategory(category)" class="btn-icon-edit" title="Editar">
+                    ✏️
+                  </button>
+                  <button 
+                    @click="deleteCategory(category.id)" 
+                    class="btn-icon-delete" 
+                    title="Deletar"
+                    :disabled="!canDeleteCategory(category.id)"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulário de Edição Inline -->
+              <div v-else class="category-edit-form">
+                <input 
+                  v-model="categoryEditForm.emoji" 
+                  type="text" 
+                  placeholder="Emoji"
+                  maxlength="2"
+                  class="category-emoji-input"
+                />
+                <input 
+                  v-model="categoryEditForm.name" 
+                  type="text" 
+                  placeholder="Nome"
+                  class="category-name-input"
+                />
+                <input 
+                  v-model="categoryEditForm.id" 
+                  type="text" 
+                  placeholder="ID (slug)"
+                  class="category-id-input"
+                />
+                <div class="category-edit-actions">
+                  <button @click="saveEditCategory" class="btn-save-category">✓</button>
+                  <button @click="cancelEditCategory" class="btn-cancel-category">✕</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formulário de Nova Categoria -->
+          <div class="new-category-form">
+            <h3>Nova Categoria</h3>
+            <form @submit.prevent="addCategory" class="category-form">
+              <div class="form-row-category">
+                <input 
+                  v-model="newCategory.emoji" 
+                  type="text" 
+                  placeholder="Emoji (Ex: 🍕)"
+                  maxlength="2"
+                  class="category-emoji-input"
+                  required
+                />
+                <input 
+                  v-model="newCategory.name" 
+                  type="text" 
+                  placeholder="Nome (Ex: Pizza)"
+                  class="category-name-input"
+                  required
+                />
+                <input 
+                  v-model="newCategory.id" 
+                  type="text" 
+                  placeholder="ID (Ex: pizza)"
+                  pattern="[a-z0-9_-]+"
+                  title="Apenas letras minúsculas, números, _ e -"
+                  class="category-id-input"
+                  required
+                />
+              </div>
+              <button type="submit" class="btn-add-category">
+                <Plus :size="20" />
+                Adicionar Categoria
+              </button>
+            </form>
+          </div>
+
+          <div v-if="categoryError" class="category-error">{{ categoryError }}</div>
+        </div>
       </div>
     </div>
   </div>
@@ -199,6 +325,162 @@ const itemsPerPage = 10
 const searchQuery = ref('')
 const formData = ref({ nome: '', categoria: '', preco: 0, estoque_atual: 0, estoque_minimo: 10, ativo: true, imagem_url: '' })
 
+// ========================================
+// 🏷️ GERENCIAMENTO DE CATEGORIAS
+// ========================================
+const showCategoriesModal = ref(false)
+const categories = ref([])
+const newCategory = ref({ id: '', name: '', emoji: '' })
+const editingCategory = ref(null)
+const categoryEditForm = ref({ id: '', name: '', emoji: '' })
+const categoryError = ref('')
+
+// Categorias padrão
+const DEFAULT_CATEGORIES = [
+  { id: 'espetinho', name: 'Espetinho', emoji: '🍢' },
+  { id: 'bebida', name: 'Bebida', emoji: '🥤' },
+  { id: 'acompanhamento', name: 'Acompanhamento', emoji: '🍟' }
+]
+
+// Carregar categorias do localStorage
+function loadCategories() {
+  const saved = localStorage.getItem('product_categories')
+  if (saved) {
+    try {
+      categories.value = JSON.parse(saved)
+      console.log('✅ Categorias carregadas:', categories.value.length)
+    } catch (e) {
+      console.error('❌ Erro ao carregar categorias:', e)
+      categories.value = [...DEFAULT_CATEGORIES]
+    }
+  } else {
+    categories.value = [...DEFAULT_CATEGORIES]
+    saveCategories()
+  }
+}
+
+// Salvar categorias no localStorage
+function saveCategories() {
+  try {
+    localStorage.setItem('product_categories', JSON.stringify(categories.value))
+    console.log('💾 Categorias salvas')
+  } catch (e) {
+    console.error('❌ Erro ao salvar categorias:', e)
+  }
+}
+
+// Abrir modal de categorias
+function openCategoriesModal() {
+  showCategoriesModal.value = true
+  categoryError.value = ''
+}
+
+// Fechar modal de categorias
+function closeCategoriesModal() {
+  showCategoriesModal.value = false
+  editingCategory.value = null
+  categoryError.value = ''
+}
+
+// Adicionar nova categoria
+function addCategory() {
+  categoryError.value = ''
+  
+  // Validações
+  if (!newCategory.value.id || !newCategory.value.name || !newCategory.value.emoji) {
+    categoryError.value = 'Preencha todos os campos'
+    return
+  }
+  
+  // Verificar se ID já existe
+  if (categories.value.some(cat => cat.id === newCategory.value.id)) {
+    categoryError.value = 'ID já existe. Use um ID único.'
+    return
+  }
+  
+  // Adicionar
+  categories.value.push({
+    id: newCategory.value.id.toLowerCase().trim(),
+    name: newCategory.value.name.trim(),
+    emoji: newCategory.value.emoji.trim()
+  })
+  
+  saveCategories()
+  
+  // Limpar formulário
+  newCategory.value = { id: '', name: '', emoji: '' }
+  
+  console.log('✅ Categoria adicionada')
+}
+
+// Iniciar edição de categoria
+function startEditCategory(category) {
+  editingCategory.value = category
+  categoryEditForm.value = { ...category }
+}
+
+// Cancelar edição
+function cancelEditCategory() {
+  editingCategory.value = null
+  categoryEditForm.value = { id: '', name: '', emoji: '' }
+}
+
+// Salvar edição de categoria
+function saveEditCategory() {
+  categoryError.value = ''
+  
+  // Validações
+  if (!categoryEditForm.value.id || !categoryEditForm.value.name || !categoryEditForm.value.emoji) {
+    categoryError.value = 'Preencha todos os campos'
+    return
+  }
+  
+  // Verificar se novo ID já existe (exceto se for o mesmo)
+  if (categoryEditForm.value.id !== editingCategory.value.id) {
+    if (categories.value.some(cat => cat.id === categoryEditForm.value.id)) {
+      categoryError.value = 'ID já existe'
+      return
+    }
+  }
+  
+  // Atualizar categoria
+  const index = categories.value.findIndex(cat => cat.id === editingCategory.value.id)
+  if (index !== -1) {
+    categories.value[index] = {
+      id: categoryEditForm.value.id.toLowerCase().trim(),
+      name: categoryEditForm.value.name.trim(),
+      emoji: categoryEditForm.value.emoji.trim()
+    }
+    
+    saveCategories()
+    cancelEditCategory()
+    
+    console.log('✅ Categoria atualizada')
+  }
+}
+
+// Verificar se pode deletar categoria
+function canDeleteCategory(categoryId) {
+  // Não pode deletar se houver produtos usando
+  const hasProducts = products.value.some(p => p.categoria === categoryId)
+  return !hasProducts
+}
+
+// Deletar categoria
+function deleteCategory(categoryId) {
+  if (!canDeleteCategory(categoryId)) {
+    categoryError.value = 'Não é possível deletar. Existem produtos usando esta categoria.'
+    return
+  }
+  
+  if (!confirm(`Deletar a categoria "${getCategoryLabel(categoryId)}"?`)) return
+  
+  categories.value = categories.value.filter(cat => cat.id !== categoryId)
+  saveCategories()
+  
+  console.log('✅ Categoria deletada')
+}
+
 // Filtrar produtos pela busca
 const filteredProducts = computed(() => {
   if (!searchQuery.value.trim()) {
@@ -225,10 +507,16 @@ const paginatedProducts = computed(() => {
 const totalPages = computed(() => Math.ceil(filteredProducts.value.length / itemsPerPage))
 
 onMounted(async () => {
+  console.log('📱 Products montado')
+  
   if (!userStore.isAdmin && userStore.profile?.role !== 'gerente') {
     error.value = 'Acesso negado'
     return
   }
+  
+  // Carregar categorias
+  loadCategories()
+  
   await fetchProducts()
 })
 
@@ -240,8 +528,11 @@ async function fetchProducts() {
     if (fetchError) throw fetchError
     products.value = data || []
     currentPage.value = 1
+    
+    console.log('✅ Produtos carregados:', products.value.length)
   } catch (err) {
     error.value = 'Erro ao carregar produtos'
+    console.error('❌ Erro:', err)
   } finally {
     loading.value = false
   }
@@ -445,13 +736,13 @@ function formatPrice(value) {
 }
 
 function getCategoryLabel(category) {
-  const labels = { espetinho: 'Espetinho', bebida: 'Bebida', acompanhamento: 'Acompanhamento' }
-  return labels[category] || category
+  const cat = categories.value.find(c => c.id === category)
+  return cat ? cat.name : category
 }
 
 function getCategoryEmoji(category) {
-  const emojis = { espetinho: '🍢', bebida: '🥤', acompanhamento: '🍟' }
-  return emojis[category] || '📦'
+  const cat = categories.value.find(c => c.id === category)
+  return cat ? cat.emoji : '📦'
 }
 </script>
 
@@ -464,6 +755,8 @@ function getCategoryEmoji(category) {
 .quick-actions{display:flex;gap:1rem;margin-bottom:2rem}
 .action-btn{display:flex;align-items:center;gap:1rem;padding:1.25rem 1.5rem;background:linear-gradient(135deg,#C41E3A,#8B1429);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;transition:all .3s;box-shadow:0 4px 12px rgba(196,30,58,.2)}
 .action-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(196,30,58,.3)}
+.action-btn-secondary{background:linear-gradient(135deg,#3b82f6,#2563eb);box-shadow:0 4px 12px rgba(59,130,246,.2)}
+.action-btn-secondary:hover{box-shadow:0 6px 20px rgba(59,130,246,.3)}
 .action-label{font-size:1.125rem;font-weight:700}
 .action-description{font-size:.875rem;opacity:.9}
 
@@ -501,13 +794,51 @@ td{padding:1rem;border-bottom:1px solid #f3f4f6}
 .pagination-btn:disabled{opacity:.5;cursor:not-allowed}
 .pagination-info{font-weight:600;color:#374151}
 .items-info{color:#9ca3af;font-size:.875rem}
+
+/* MODAL */
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem}
 .modal-content{background:#fff;border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-categories{max-width:700px}
 .modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:2px solid #f3f4f6}
 .modal-header h2{font-size:1.5rem;font-weight:800;color:#1a202c;margin:0}
 .modal-close{background:none;border:none;font-size:1.5rem;cursor:pointer;color:#9ca3af;padding:.5rem;transition:color .2s}
 .modal-close:hover{color:#374151}
 .modal-form{padding:1.5rem}
+
+/* ===== ESTILOS DE CATEGORIAS ===== */
+.categories-content{padding:1.5rem}
+.categories-list{display:flex;flex-direction:column;gap:0.75rem;margin-bottom:2rem;max-height:400px;overflow-y:auto}
+.category-item{background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:1rem;transition:all .2s}
+.category-item:hover{border-color:#C41E3A;background:#fff}
+.category-item.editing{border-color:#3b82f6;background:#eff6ff}
+.category-display{display:flex;align-items:center;gap:1rem}
+.category-emoji{font-size:2rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:10px;flex-shrink:0}
+.category-info{flex:1}
+.category-name{font-weight:700;font-size:1.125rem;color:#1a202c}
+.category-id{font-size:0.875rem;color:#6b7280;font-family:monospace}
+.category-actions{display:flex;gap:0.5rem}
+.btn-icon-edit,.btn-icon-delete{padding:0.5rem;background:none;border:none;font-size:1.25rem;cursor:pointer;transition:transform .2s}
+.btn-icon-edit:hover{transform:scale(1.2)}
+.btn-icon-delete:hover:not(:disabled){transform:scale(1.2)}
+.btn-icon-delete:disabled{opacity:0.3;cursor:not-allowed}
+.category-edit-form{display:flex;gap:0.5rem;align-items:center}
+.category-emoji-input{width:60px;padding:0.5rem;border:2px solid #e5e7eb;border-radius:8px;text-align:center;font-size:1.5rem}
+.category-name-input{flex:2;padding:0.5rem;border:2px solid #e5e7eb;border-radius:8px;font-size:1rem}
+.category-id-input{flex:1;padding:0.5rem;border:2px solid #e5e7eb;border-radius:8px;font-size:0.875rem;font-family:monospace}
+.category-edit-actions{display:flex;gap:0.25rem}
+.btn-save-category,.btn-cancel-category{padding:0.5rem;border:none;border-radius:6px;cursor:pointer;font-size:1.25rem;transition:all .2s}
+.btn-save-category{background:#10b981;color:#fff}
+.btn-save-category:hover{background:#059669}
+.btn-cancel-category{background:#ef4444;color:#fff}
+.btn-cancel-category:hover{background:#dc2626}
+.new-category-form{background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:1.5rem}
+.new-category-form h3{font-size:1.125rem;font-weight:700;color:#1a202c;margin:0 0 1rem 0}
+.form-row-category{display:flex;gap:0.75rem;margin-bottom:1rem}
+.btn-add-category{width:100%;padding:0.875rem;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.5rem;transition:all .2s}
+.btn-add-category:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(16,185,129,.3)}
+.category-error{background:#fee2e2;color:#991b1b;padding:0.875rem;border-radius:8px;margin-top:1rem;font-weight:600}
+
+/* IMAGE UPLOAD */
 .image-upload-section{margin-bottom:1.5rem}
 .image-preview-container{position:relative;width:100%;max-width:300px;margin:0 auto}
 .image-preview{width:100%;height:250px;object-fit:cover;border-radius:12px;border:3px solid #e5e7eb}
@@ -558,14 +889,19 @@ td{padding:1rem;border-bottom:1px solid #f3f4f6}
 .btn-submit:disabled{opacity:.6;cursor:not-allowed}
 .form-error{color:#ef4444;margin-top:1rem;text-align:center}
 .loading,.error-message,.empty-state{text-align:center;padding:4rem 2rem;color:#9ca3af}
+
 @media (max-width:768px){
 .products-container{padding:1rem}
+.quick-actions{flex-direction:column}
 .form-row{grid-template-columns:1fr}
+.form-row-category{flex-direction:column}
 table{font-size:.875rem}
 th,td{padding:.75rem .5rem}
 .product-thumbnail,.product-no-image{width:50px;height:50px}
 .search-input{font-size:0.9rem;padding:0.75rem 1rem 0.75rem 2.75rem}
 .pagination{flex-direction:column;gap:1rem}
 .pagination-btn{width:100%;justify-content:center}
+.category-edit-form{flex-direction:column}
+.category-emoji-input,.category-name-input,.category-id-input{width:100%}
 }
 </style>
