@@ -458,10 +458,9 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { supabase } from '@/services/supabase';
-// ✨ NOVO: Import do Firebase para login com Google REAL
 import { auth, googleProvider, signInWithPopup } from '@/services/firebase';
 
 export default {
@@ -471,7 +470,9 @@ export default {
     const route = useRoute();
     const tableId = ref(route.params.tableId || '1');
     
-    // Autenticação
+    // ========================================
+    // 🔐 AUTENTICAÇÃO
+    // ========================================
     const isAuthenticated = ref(false);
     const user = ref({
       name: '',
@@ -480,7 +481,9 @@ export default {
       uid: ''
     });
     
-    // Estados
+    // ========================================
+    // 📊 ESTADOS
+    // ========================================
     const products = ref([]);
     const cart = ref([]);
     const favorites = ref([]);
@@ -492,19 +495,16 @@ export default {
     const isLoading = ref(true);
 
     // ========================================
-    // 🔔 FUNÇÃO TOAST (CORRIGIDA)
+    // ⏱️ SESSÃO E INATIVIDADE (10 MINUTOS)
     // ========================================
-    const showToastMessage = (message) => {
-      toastMessage.value = message;
-      showToast.value = true;
-      
-      // Auto-esconder após 3 segundos
-      setTimeout(() => {
-        showToast.value = false;
-      }, 3000);
-    };
+    const sessionTimeout = ref(null);
+    const lastActivityTime = ref(Date.now());
+    const SESSION_DURATION = 10 * 60 * 1000; // 10 minutos
+    let visibilityListener = null;
 
-    // Categorias
+    // ========================================
+    // 📋 CATEGORIAS
+    // ========================================
     const categories = ref([
       { id: 'all', name: 'Todos' },
       { id: 'espetinho', name: 'Espetinhos' },
@@ -512,9 +512,186 @@ export default {
       { id: 'acompanhamento', name: 'Acompanhamentos' }
     ]);
 
-    // Dados mockados
+    // ========================================
+    // 🔔 TOAST
+    // ========================================
+    const showToastMessage = (message) => {
+      toastMessage.value = message;
+      showToast.value = true;
+      
+      setTimeout(() => {
+        showToast.value = false;
+      }, 3000);
+    };
+
+    // ========================================
+    // 💾 GERENCIAMENTO DE CARRINHO/FAVORITOS
+    // ========================================
+    const saveCartToStorage = () => {
+      try {
+        localStorage.setItem(`cart_mesa_${tableId.value}`, JSON.stringify(cart.value));
+        localStorage.setItem(`favorites_mesa_${tableId.value}`, JSON.stringify(favorites.value));
+        console.log('💾 Carrinho salvo:', cart.value.length, 'itens');
+      } catch (error) {
+        console.error('❌ Erro ao salvar carrinho:', error);
+      }
+    };
+
+    const restoreCartFromStorage = () => {
+      try {
+        const savedCart = localStorage.getItem(`cart_mesa_${tableId.value}`);
+        const savedFavorites = localStorage.getItem(`favorites_mesa_${tableId.value}`);
+        
+        if (savedCart) {
+          cart.value = JSON.parse(savedCart);
+          console.log('✅ Carrinho restaurado:', cart.value.length, 'itens');
+        }
+        
+        if (savedFavorites) {
+          favorites.value = JSON.parse(savedFavorites);
+          console.log('✅ Favoritos restaurados:', favorites.value.length, 'itens');
+        }
+      } catch (error) {
+        console.error('❌ Erro ao restaurar carrinho:', error);
+      }
+    };
+
+    // ========================================
+    // 👤 GERENCIAMENTO DE USUÁRIO
+    // ========================================
+    const saveUserToStorage = () => {
+      try {
+        localStorage.setItem(`user_mesa_${tableId.value}`, JSON.stringify(user.value));
+        console.log('💾 Usuário salvo:', user.value.name);
+      } catch (error) {
+        console.error('❌ Erro ao salvar usuário:', error);
+      }
+    };
+
+    const restoreUserFromStorage = () => {
+      try {
+        const savedUser = localStorage.getItem(`user_mesa_${tableId.value}`);
+        if (savedUser) {
+          const userData = JSON.parse(savedUser);
+          user.value = userData;
+          console.log('✅ Usuário restaurado:', userData.name);
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('❌ Erro ao restaurar usuário:', error);
+        return false;
+      }
+    };
+
+    const clearSessionStorage = () => {
+      try {
+        localStorage.removeItem(`session_time_mesa_${tableId.value}`);
+        console.log('🗑️ Sessão limpa');
+      } catch (error) {
+        console.error('❌ Erro ao limpar sessão:', error);
+      }
+    };
+
+    // ========================================
+    // ⏱️ MONITORAMENTO DE INATIVIDADE
+    // ========================================
+    const updateActivityTime = () => {
+      lastActivityTime.value = Date.now();
+      localStorage.setItem(`session_time_mesa_${tableId.value}`, lastActivityTime.value.toString());
+    };
+
+    const checkSessionExpiration = () => {
+      const savedTime = localStorage.getItem(`session_time_mesa_${tableId.value}`);
+      
+      if (!savedTime) {
+        updateActivityTime();
+        return false;
+      }
+      
+      const elapsed = Date.now() - parseInt(savedTime);
+      const isExpired = elapsed > SESSION_DURATION;
+      
+      console.log(`⏱️ Tempo inativo: ${Math.floor(elapsed / 1000)}s / ${SESSION_DURATION / 1000}s`);
+      
+      return isExpired;
+    };
+
+    const logoutByExpiration = async () => {
+      console.log('⏰ Sessão expirou após 10 minutos de inatividade');
+      
+      // Salvar carrinho antes de deslogar
+      saveCartToStorage();
+      
+      // Fazer logout do Firebase
+      try {
+        await auth.signOut();
+      } catch (error) {
+        console.error('❌ Erro no logout:', error);
+      }
+      
+      // Limpar dados
+      user.value = { name: '', email: '', photoURL: '', uid: '' };
+      isAuthenticated.value = false;
+      clearSessionStorage();
+      
+      // Parar monitoramento
+      stopInactivityMonitor();
+      
+      showToastMessage('Sessão expirada. Escaneie o QR Code novamente.');
+    };
+
+    const startInactivityMonitor = () => {
+      console.log('🔍 Iniciando monitoramento de inatividade (10 min)');
+      
+      updateActivityTime();
+      
+      // Listener para mudança de visibilidade
+      visibilityListener = () => {
+        if (document.visibilityState === 'visible') {
+          console.log('👀 App voltou para foreground');
+          
+          if (checkSessionExpiration()) {
+            logoutByExpiration();
+          } else {
+            updateActivityTime();
+            console.log('✅ Sessão ainda válida');
+          }
+        } else {
+          console.log('🌙 App foi para background');
+          updateActivityTime();
+        }
+      };
+      
+      document.addEventListener('visibilitychange', visibilityListener);
+      
+      // Verificação periódica (30s)
+      sessionTimeout.value = setInterval(() => {
+        if (isAuthenticated.value && checkSessionExpiration()) {
+          logoutByExpiration();
+        }
+      }, 30000);
+    };
+
+    const stopInactivityMonitor = () => {
+      if (sessionTimeout.value) {
+        clearInterval(sessionTimeout.value);
+        sessionTimeout.value = null;
+      }
+      
+      if (visibilityListener) {
+        document.removeEventListener('visibilitychange', visibilityListener);
+        visibilityListener = null;
+      }
+      
+      console.log('🛑 Monitoramento de inatividade parado');
+    };
+
+    // ========================================
+    // 📦 DADOS MOCKADOS
+    // ========================================
     const loadMockData = () => {
-      console.log('Carregando dados mockados...');
+      console.log('📦 Carregando dados mockados...');
       products.value = [
         {
           id: 1,
@@ -662,13 +839,15 @@ export default {
         }
       ];
       isLoading.value = false;
-      console.log('Produtos carregados:', products.value.length);
+      console.log('✅ Produtos mockados carregados:', products.value.length);
     };
 
-    // Carregar produtos do Supabase
+    // ========================================
+    // 📡 CARREGAR PRODUTOS DO SUPABASE
+    // ========================================
     const loadData = async () => {
       try {
-        console.log('Tentando carregar do Supabase...');
+        console.log('📡 Carregando produtos do Supabase...');
         isLoading.value = true;
         
         const { data, error } = await supabase
@@ -679,27 +858,29 @@ export default {
           .order('nome');
 
         if (error) {
-          console.error('Erro no Supabase:', error);
+          console.error('❌ Erro no Supabase:', error);
           throw error;
         }
 
         if (data && data.length > 0) {
           products.value = data;
-          console.log('Produtos do Supabase:', products.value.length);
+          console.log('✅ Produtos carregados:', products.value.length);
         } else {
-          console.log('Nenhum produto no Supabase, usando dados mockados');
+          console.log('⚠️ Nenhum produto no Supabase, usando mockados');
           loadMockData();
           return;
         }
         
         isLoading.value = false;
       } catch (error) {
-        console.error('Erro ao carregar produtos:', error);
+        console.error('❌ Erro ao carregar produtos:', error);
         loadMockData();
       }
     };
 
-    // Computed
+    // ========================================
+    // 🧮 COMPUTED PROPERTIES
+    // ========================================
     const filteredProductsByCategory = computed(() => {
       if (selectedCategory.value === 'all') {
         return products.value;
@@ -765,57 +946,75 @@ export default {
       user.value.name ? user.value.name.charAt(0).toUpperCase() : 'U'
     );
 
-    // Funções
+    // ========================================
+    // 🔨 FUNÇÕES UTILITÁRIAS
+    // ========================================
     const formatPrice = (value) => {
       const num = parseFloat(value || 0);
       return num.toFixed(2).replace('.', ',');
     };
 
     // ========================================
-    // 🔥 LOGIN COM GOOGLE - REAL (Firebase)
+    // 🔐 LOGIN COM GOOGLE (FIREBASE REAL)
     // ========================================
     const loginWithGoogle = async () => {
       console.log('🔐 Iniciando login com Google...');
       
       try {
-        // Abre popup do Google para login
         const result = await signInWithPopup(auth, googleProvider);
-        
-        // Dados do usuário autenticado
         const googleUser = result.user;
         
         console.log('✅ Login realizado com sucesso!');
-        console.log('👤 Usuário:', googleUser.displayName);
-        console.log('📧 Email:', googleUser.email);
+        console.log('📋 Dados do Google:', {
+          displayName: googleUser.displayName,
+          email: googleUser.email,
+          uid: googleUser.uid
+        });
         
-        // Salva os dados do usuário
+        // Garantir que sempre tem um nome
+        const userName = googleUser.displayName || 
+                         googleUser.email?.split('@')[0] || 
+                         'Cliente';
+        
         user.value = {
-          name: googleUser.displayName || 'Usuário',
+          name: userName,
           email: googleUser.email,
           photoURL: googleUser.photoURL,
           uid: googleUser.uid
         };
         
+        console.log('👤 Usuário configurado:', {
+          name: user.value.name,
+          email: user.value.email
+        });
+        
+        // Salvar no localStorage
+        saveUserToStorage();
+        
         isAuthenticated.value = true;
         
-        // Carrega os produtos
+        // Restaurar carrinho
+        restoreCartFromStorage();
+        
+        // Iniciar monitoramento de inatividade
+        startInactivityMonitor();
+        
+        // Carregar produtos
         loadData();
         
-        // Mostra mensagem de sucesso
         showToastMessage(`Bem-vindo, ${user.value.name}!`);
         
       } catch (error) {
         console.error('❌ Erro no login:', error);
         
-        // Tratamento de erros
         let errorMessage = 'Erro ao fazer login';
         
         if (error.code === 'auth/popup-closed-by-user') {
           errorMessage = 'Login cancelado';
         } else if (error.code === 'auth/popup-blocked') {
-          errorMessage = 'Popup bloqueado pelo navegador. Permita popups para fazer login.';
+          errorMessage = 'Popup bloqueado. Permita popups para fazer login.';
         } else if (error.code === 'auth/cancelled-popup-request') {
-          errorMessage = 'Outro popup de login já está aberto';
+          errorMessage = 'Outro popup já está aberto';
         } else if (error.code === 'auth/network-request-failed') {
           errorMessage = 'Sem conexão com a internet';
         }
@@ -825,37 +1024,43 @@ export default {
     };
 
     // ========================================
-    // 🚪 LOGOUT - REAL (Firebase)
+    // 🚪 LOGOUT
     // ========================================
     const logout = async () => {
       try {
         console.log('👋 Fazendo logout...');
         
+        // Parar monitoramento
+        stopInactivityMonitor();
+        
+        // Salvar carrinho
+        saveCartToStorage();
+        
         // Desloga do Firebase
         await auth.signOut();
         
-        // Limpa os dados locais
+        // Limpar dados
         user.value = { name: '', email: '', photoURL: '', uid: '' };
         isAuthenticated.value = false;
-        cart.value = [];
-        favorites.value = [];
+        clearSessionStorage();
         
         showToastMessage('Você saiu da conta');
-        console.log('✅ Logout realizado com sucesso');
+        console.log('✅ Logout realizado');
         
       } catch (error) {
         console.error('❌ Erro no logout:', error);
         
-        // Mesmo com erro, limpa tudo localmente
         user.value = { name: '', email: '', photoURL: '', uid: '' };
         isAuthenticated.value = false;
-        cart.value = [];
-        favorites.value = [];
+        clearSessionStorage();
         
         showToastMessage('Sessão encerrada');
       }
     };
 
+    // ========================================
+    // ❤️ FAVORITOS
+    // ========================================
     const toggleFavorite = (productId) => {
       const index = favorites.value.indexOf(productId);
       if (index > -1) {
@@ -865,12 +1070,16 @@ export default {
         favorites.value.push(productId);
         showToastMessage('Adicionado aos favoritos');
       }
+      saveCartToStorage();
     };
 
     const isFavorite = (productId) => {
       return favorites.value.includes(productId);
     };
 
+    // ========================================
+    // 🛒 CARRINHO
+    // ========================================
     const addToCart = (product) => {
       if (product.estoque_atual <= 0) return;
 
@@ -882,11 +1091,13 @@ export default {
         cart.value.push({ ...product, quantity: 1 });
       }
 
+      saveCartToStorage();
       showToastMessage(`${product.nome} adicionado!`);
     };
 
     const increaseQuantity = (index) => {
       cart.value[index].quantity++;
+      saveCartToStorage();
     };
 
     const decreaseQuantity = (index) => {
@@ -895,24 +1106,54 @@ export default {
       } else {
         removeFromCart(index);
       }
+      saveCartToStorage();
     };
 
     const removeFromCart = (index) => {
       cart.value.splice(index, 1);
+      saveCartToStorage();
       showToastMessage('Item removido');
     };
 
     const viewProduct = (product) => {
-      console.log('Ver produto:', product);
+      console.log('👀 Ver produto:', product);
     };
 
+    // ========================================
+    // ✅ CONFIRMAR PEDIDO (COM VALIDAÇÃO)
+    // ========================================
     const confirmOrder = async () => {
-      if (cart.value.length === 0) return;
+      if (cart.value.length === 0) {
+        showToastMessage('Carrinho vazio');
+        return;
+      }
+
+      // ✅ VALIDAÇÃO CRÍTICA: Verificar dados do usuário
+      console.log('🔍 Verificando dados do usuário antes de criar pedido...');
+      console.log('👤 user.value:', {
+        name: user.value.name,
+        email: user.value.email,
+        uid: user.value.uid
+      });
+
+      if (!user.value.name || user.value.name.trim() === '') {
+        console.error('❌ ERRO CRÍTICO: Nome do usuário está vazio!');
+        showToastMessage('Erro: Nome do usuário não encontrado. Faça login novamente.');
+        logout();
+        return;
+      }
+
+      if (!user.value.email || user.value.email.trim() === '') {
+        console.error('❌ ERRO CRÍTICO: Email do usuário está vazio!');
+        showToastMessage('Erro: Email do usuário não encontrado. Faça login novamente.');
+        logout();
+        return;
+      }
 
       try {
-        console.log('📦 Enviando pedido...');
+        console.log('📦 Iniciando criação do pedido...');
         
-        // 1. Buscar dados da mesa atual
+        // 1. Buscar dados da mesa
         const { data: mesaAtual, error: mesaError } = await supabase
           .from('pwa_mesas')
           .select('*')
@@ -920,11 +1161,13 @@ export default {
           .single();
 
         if (mesaError) {
-          console.error('Erro ao buscar mesa:', mesaError);
+          console.error('❌ Erro ao buscar mesa:', mesaError);
           throw mesaError;
         }
 
-        // 2. Preparar itens do pedido no formato JSONB
+        console.log('✅ Mesa encontrada:', mesaAtual.numero);
+
+        // 2. Preparar itens do pedido
         const itens = cart.value.map(item => ({
           produto_id: item.id,
           nome: item.nome,
@@ -933,17 +1176,30 @@ export default {
           subtotal: item.preco * item.quantity
         }));
 
-        // 3. Criar o pedido
+        console.log('📋 Itens preparados:', itens.length);
+
+        // 3. Criar dados do pedido COM VALIDAÇÃO
         const pedidoData = {
           mesa_id: parseInt(tableId.value),
-          cliente_nome: user.value.name,
-          cliente_email: user.value.email,
+          cliente_nome: user.value.name.trim(), // ✅ Remove espaços
+          cliente_email: user.value.email.trim(), // ✅ Remove espaços
           cliente_uid: user.value.uid,
           status: 'active',
           valor_total: totalPrice.value,
           itens: itens
         };
 
+        // ✅ LOG CRÍTICO: Verificar dados antes de enviar
+        console.log('📤 Dados do pedido a serem enviados:', {
+          mesa_id: pedidoData.mesa_id,
+          cliente_nome: pedidoData.cliente_nome,
+          cliente_email: pedidoData.cliente_email,
+          cliente_uid: pedidoData.cliente_uid,
+          valor_total: pedidoData.valor_total,
+          total_itens: pedidoData.itens.length
+        });
+
+        // 4. Inserir pedido no banco
         const { data: pedidoCriado, error: pedidoError } = await supabase
           .from('pwa_pedidos')
           .insert([pedidoData])
@@ -951,13 +1207,18 @@ export default {
           .single();
 
         if (pedidoError) {
-          console.error('Erro ao criar pedido:', pedidoError);
+          console.error('❌ Erro ao criar pedido:', pedidoError);
           throw pedidoError;
         }
 
-        console.log('✅ Pedido criado:', pedidoCriado.id);
+        console.log('✅ Pedido criado com sucesso:', {
+          id: pedidoCriado.id,
+          cliente_nome: pedidoCriado.cliente_nome,
+          mesa_id: pedidoCriado.mesa_id,
+          valor_total: pedidoCriado.valor_total
+        });
 
-        // 4. Atualizar status da mesa para ocupada
+        // 5. Atualizar mesa
         const { error: updateMesaError } = await supabase
           .from('pwa_mesas')
           .update({
@@ -971,13 +1232,13 @@ export default {
           .eq('id', tableId.value);
 
         if (updateMesaError) {
-          console.error('Erro ao ocupar mesa:', updateMesaError);
+          console.error('❌ Erro ao ocupar mesa:', updateMesaError);
           throw updateMesaError;
         }
 
-        console.log('✅ Mesa ocupada com sucesso');
+        console.log('✅ Mesa ocupada');
 
-        // 5. Atualizar estoque dos produtos
+        // 6. Atualizar estoque
         for (const item of cart.value) {
           const { error: estoqueError } = await supabase
             .from('pwa_produtos')
@@ -987,56 +1248,94 @@ export default {
             .eq('id', item.id);
 
           if (estoqueError) {
-            console.error('Erro ao atualizar estoque:', estoqueError);
+            console.error('⚠️ Erro ao atualizar estoque:', estoqueError);
           }
         }
 
         console.log('✅ Estoque atualizado');
 
-        // 6. Limpar carrinho e voltar para home
+        // 7. Limpar carrinho e voltar
         cart.value = [];
+        saveCartToStorage();
         currentTab.value = 'home';
+        
         showToastMessage('Pedido enviado com sucesso! 🎉');
 
-        // Recarregar produtos para atualizar estoque
+        // Recarregar produtos
         await loadData();
 
       } catch (error) {
-        console.error('❌ Erro ao confirmar pedido:', error);
+        console.error('❌ ERRO AO CONFIRMAR PEDIDO:', error);
         showToastMessage('Erro ao enviar pedido. Tente novamente.');
       }
     };
 
     // ========================================
-    // 🔄 VERIFICAR SESSÃO AO CARREGAR
+    // 🔄 LIFECYCLE - MONTAR COMPONENTE
     // ========================================
     onMounted(() => {
-      console.log('📱 Componente montado');
+      console.log('📱 Componente CardapioDigital montado');
+      console.log('🏷️ Mesa ID:', tableId.value);
       
-      // Verifica se já existe sessão ativa no Firebase
+      // Verificar sessão ativa no Firebase
       auth.onAuthStateChanged((firebaseUser) => {
         if (firebaseUser) {
-          console.log('✅ Sessão ativa encontrada:', firebaseUser.displayName);
+          console.log('✅ Sessão Firebase ativa:', firebaseUser.displayName);
           
-          // Restaura os dados do usuário
+          // Verificar se sessão expirou
+          if (checkSessionExpiration()) {
+            console.log('⏰ Sessão expirada detectada');
+            logoutByExpiration();
+            return;
+          }
+          
+          // Garantir que sempre tem um nome
+          const userName = firebaseUser.displayName || 
+                           firebaseUser.email?.split('@')[0] || 
+                           'Cliente';
+          
           user.value = {
-            name: firebaseUser.displayName || 'Usuário',
+            name: userName,
             email: firebaseUser.email,
             photoURL: firebaseUser.photoURL,
             uid: firebaseUser.uid
           };
           
+          console.log('👤 Usuário restaurado:', {
+            name: user.value.name,
+            email: user.value.email
+          });
+          
           isAuthenticated.value = true;
           
-          // Carrega os produtos
+          // Restaurar carrinho e usuário do localStorage
+          restoreCartFromStorage();
+          restoreUserFromStorage();
+          
+          // Iniciar monitoramento
+          startInactivityMonitor();
+          
+          // Carregar produtos
           loadData();
         } else {
-          console.log('⚠️ Nenhuma sessão ativa - mostrando tela de login');
+          console.log('⚠️ Nenhuma sessão ativa');
           isAuthenticated.value = false;
+          stopInactivityMonitor();
         }
       });
     });
 
+    // ========================================
+    // 🧹 LIFECYCLE - DESMONTAR COMPONENTE
+    // ========================================
+    onUnmounted(() => {
+      console.log('🧹 Componente desmontado - limpando listeners');
+      stopInactivityMonitor();
+    });
+
+    // ========================================
+    // 📤 RETURN (EXPOR PARA TEMPLATE)
+    // ========================================
     return {
       tableId,
       isAuthenticated,
@@ -1090,7 +1389,6 @@ export default {
   overflow-x: hidden;
 }
 
-/* Reset de margens e padding do body */
 body {
   margin: 0;
   padding: 0;
@@ -1535,15 +1833,14 @@ body {
   cursor: not-allowed;
 }
 
-/* ===== GRID DE PRODUTOS (para browse e favoritos) ===== */
+/* ===== GRID DE PRODUTOS ===== */
 .products-grid-modern {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 2 colunas fixas */
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
   padding: 0;
 }
 
-/* Cards dentro do grid devem ocupar 100% da coluna */
 .products-grid-modern .product-card-modern {
   min-width: 100%;
   max-width: 100%;
@@ -1963,13 +2260,6 @@ body {
   
   .modern-content {
     padding: 1rem;
-  }
-}
-
-@media (min-width: 769px) {
-  .app-main-modern {
-    max-width: 100%;
-    margin: 0;
   }
 }
 </style>
