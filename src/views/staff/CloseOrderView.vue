@@ -1,6 +1,6 @@
 <template>
   <div class="close-order-container">
-    <!-- ✅ NOVO: Banner de Status de Conexão -->
+    <!-- ✅ Banner de Status de Conexão -->
     <div v-if="!isOnline || pendingSync > 0" class="connection-banner">
       <div class="banner-content">
         <div class="status-icon">
@@ -29,7 +29,7 @@
       </button>
       <h1>Fechar Comanda</h1>
       
-      <!-- ✅ NOVO: Indicador de Status -->
+      <!-- ✅ Indicador de Status -->
       <div class="connection-status" :class="connectionStatus">
         <div class="status-dot"></div>
       </div>
@@ -53,6 +53,30 @@
         <div>
           <h2>Mesa {{ getTableNumber(order.mesa_id) }}</h2>
           <p class="order-id">Pedido #{{ order.id.slice(0, 8) }}</p>
+          
+          <!-- ✅ NOVO: Exibir Nome do Cliente -->
+          <div v-if="clientName" class="client-info">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            <span>{{ clientName }}</span>
+          </div>
+          <div v-else class="client-warning">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 9v4m0 4h.01M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+            </svg>
+            <span>Cliente não identificado</span>
+          </div>
+
+          <!-- ✅ NOVO: Exibir Email do Cliente (se houver) -->
+          <div v-if="clientEmail" class="client-email">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            <span>{{ clientEmail }}</span>
+          </div>
         </div>
       </div>
 
@@ -90,7 +114,7 @@
         </div>
       </div>
 
-      <!-- ✅ NOVO: Aviso de Modo Offline -->
+      <!-- ✅ Aviso de Modo Offline -->
       <div v-if="!isOnline" class="offline-warning">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 9v4m0 4h.01M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
@@ -121,7 +145,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, X, Check, Package, AlertCircle } from 'lucide-vue-next'
 import { supabase, TABLES } from '@/services/supabase'
@@ -137,23 +161,47 @@ const loading = ref(true)
 const closing = ref(false)
 const error = ref(null)
 
-// ✅ NOVO: Estados de sincronização
+// ========================================
+// 👤 NOVO: Computed para nome e email do cliente
+// ========================================
+const clientName = computed(() => {
+  if (!order.value) return null
+  
+  // Prioridade: 1. do pedido, 2. da mesa
+  return order.value.cliente_nome || 
+         order.value.cliente_nome_mesa || 
+         null
+})
+
+const clientEmail = computed(() => {
+  if (!order.value) return null
+  
+  // Prioridade: 1. do pedido, 2. da mesa
+  return order.value.cliente_email || 
+         order.value.cliente_email_mesa || 
+         null
+})
+
+// ========================================
+// 🌐 Estados de sincronização
+// ========================================
 const isOnline = ref(syncService.checkOnlineStatus())
 const pendingSync = ref(syncService.getPendingCount())
 
-// ✅ NOVO: Status de conexão
 const connectionStatus = computed(() => {
   if (!isOnline.value) return 'offline'
   if (pendingSync.value > 0) return 'syncing'
   return 'online'
 })
 
-// ✅ NOVO: Atualizar status de sincronização
 function updateSyncStatus() {
   isOnline.value = syncService.checkOnlineStatus()
   pendingSync.value = syncService.getPendingCount()
 }
 
+// ========================================
+// 🔨 Funções Utilitárias
+// ========================================
 const formatPrice = (price) => {
   return parseFloat(price).toFixed(2).replace('.', ',')
 }
@@ -173,44 +221,98 @@ const getPaymentMethod = (method) => {
   return methods[method] || method
 }
 
+// ========================================
+// 📦 CARREGAR PEDIDO (COM VALIDAÇÃO)
+// ========================================
 const loadOrder = async () => {
   loading.value = true
   error.value = null
   
   try {
-    // Buscar pedidos ativos da mesa
-    const { data: orders, error: ordersError } = await supabase
-      .from(TABLES.PEDIDOS)
-      .select('*')
-      .eq('mesa_id', tableId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
+    console.log('📦 Carregando pedido da mesa:', tableId)
+    
+    // ✅ Buscar pedido E mesa em paralelo
+    const [ordersResult, tableResult] = await Promise.all([
+      supabase
+        .from(TABLES.PEDIDOS)
+        .select('*')
+        .eq('mesa_id', tableId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1),
+      
+      supabase
+        .from(TABLES.MESAS)
+        .select('*')
+        .eq('id', tableId)
+        .single()
+    ])
 
-    if (ordersError) throw ordersError
+    if (ordersResult.error) throw ordersResult.error
 
-    if (orders && orders.length > 0) {
-      order.value = orders[0]
+    if (ordersResult.data && ordersResult.data.length > 0) {
+      order.value = ordersResult.data[0]
+      
+      console.log('✅ Pedido encontrado:', {
+        id: order.value.id,
+        mesa_id: order.value.mesa_id,
+        valor_total: order.value.valor_total,
+        cliente_nome_pedido: order.value.cliente_nome,
+        cliente_email_pedido: order.value.cliente_email
+      })
+      
+      // ✅ Adicionar dados da mesa ao pedido
+      if (tableResult.data) {
+        const mesa = tableResult.data
+        order.value.mesa = mesa
+        order.value.cliente_nome_mesa = mesa.cliente_nome
+        order.value.cliente_email_mesa = mesa.cliente_email
+        
+        console.log('📋 Dados da mesa:', {
+          numero: mesa.numero,
+          cliente_nome_mesa: mesa.cliente_nome,
+          cliente_email_mesa: mesa.cliente_email
+        })
+        
+        // ⚠️ Verificar de onde vem o nome
+        if (!order.value.cliente_nome && order.value.cliente_nome_mesa) {
+          console.log('⚠️ Nome do cliente vem da mesa, não do pedido')
+        }
+        
+        if (!order.value.cliente_nome && !order.value.cliente_nome_mesa) {
+          console.warn('❌ ATENÇÃO: Pedido sem nome do cliente!')
+        }
+      }
     } else {
       error.value = 'Nenhum pedido ativo encontrado'
+      console.log('⚠️ Nenhum pedido ativo para mesa:', tableId)
     }
     
-    // ✅ Atualizar status de sincronização
     updateSyncStatus()
   } catch (err) {
-    console.error('Erro ao carregar pedido:', err)
+    console.error('❌ Erro ao carregar pedido:', err)
     error.value = 'Erro ao carregar pedido'
   } finally {
     loading.value = false
   }
 }
 
-// ✅ MODIFICADO: Usando syncService para fechar comanda
+// ========================================
+// ✅ FECHAR COMANDA (COM VALIDAÇÃO)
+// ========================================
 const closeOrder = async () => {
   closing.value = true
 
   try {
-    // ✅ Atualizar pedido para closed usando syncService
+    console.log('🔒 Fechando comanda...')
+    console.log('📋 Pedido:', {
+      id: order.value.id,
+      mesa_id: order.value.mesa_id,
+      cliente_nome: order.value.cliente_nome,
+      valor_total: order.value.valor_total
+    })
+
+    // ✅ Atualizar pedido para closed
     const orderUpdate = await syncService.update(TABLES.PEDIDOS, order.value.id, { 
       status: 'closed' 
     })
@@ -219,23 +321,30 @@ const closeOrder = async () => {
       throw orderUpdate.error
     }
 
-    // ✅ Liberar mesa usando syncService
+    console.log('✅ Pedido marcado como fechado')
+
+    // ✅ Liberar mesa
     const tableUpdate = await syncService.update(TABLES.MESAS, tableId, {
       status: 'available',
       pedido_atual_id: null,
       clientes_atual: 0,
-      ocupada_desde: null
+      ocupada_desde: null,
+      cliente_nome: null,
+      cliente_email: null,
+      cliente_uid: null
     })
 
     if (tableUpdate.error && !tableUpdate.offline) {
       throw tableUpdate.error
     }
 
-    // ✅ Criar atividade de encerramento usando syncService
+    console.log('✅ Mesa liberada')
+
+    // ✅ Criar atividade de encerramento
     const activityData = {
       tipo: 'close_order',
       titulo: `Comanda Mesa ${getTableNumber(tableId)} fechada`,
-      descricao: `Pedido #${order.value.id.slice(0, 8)} encerrado - Total: R$ ${formatPrice(order.value.valor_total)}`,
+      descricao: `Pedido #${order.value.id.slice(0, 8)} encerrado${clientName.value ? ` - Cliente: ${clientName.value}` : ''} - Total: R$ ${formatPrice(order.value.valor_total)}`,
       mesa_id: tableId,
       pedido_id: order.value.id,
       valor: order.value.valor_total,
@@ -243,6 +352,8 @@ const closeOrder = async () => {
     }
 
     await syncService.insert(TABLES.ATIVIDADES, activityData)
+
+    console.log('✅ Atividade registrada')
 
     // ✅ Atualizar status de sincronização
     updateSyncStatus()
@@ -257,17 +368,23 @@ const closeOrder = async () => {
     router.push('/tables')
 
   } catch (error) {
-    console.error('Erro ao fechar comanda:', error)
+    console.error('❌ Erro ao fechar comanda:', error)
     alert('Erro ao fechar comanda. Tente novamente.')
   } finally {
     closing.value = false
   }
 }
 
+// ========================================
+// 🔙 Voltar
+// ========================================
 const goBack = () => {
   router.push('/tables')
 }
 
+// ========================================
+// 📋 Carregar Mesas
+// ========================================
 const loadTables = async () => {
   try {
     const { data, error } = await supabase
@@ -277,18 +394,29 @@ const loadTables = async () => {
 
     if (error) throw error
     tables.value = data || []
+    console.log('✅ Mesas carregadas:', tables.value.length)
   } catch (error) {
-    console.error('Erro ao carregar mesas:', error)
+    console.error('❌ Erro ao carregar mesas:', error)
   }
 }
 
+// ========================================
+// 🔄 Lifecycle
+// ========================================
 onMounted(() => {
+  console.log('📱 CloseOrder montado - Mesa:', tableId)
   loadTables()
   loadOrder()
   
-  // ✅ NOVO: Listener para mudanças de conexão
+  // ✅ Listeners para mudanças de conexão
   window.addEventListener('online', updateSyncStatus)
   window.addEventListener('offline', updateSyncStatus)
+})
+
+onUnmounted(() => {
+  console.log('🧹 CloseOrder desmontado')
+  window.removeEventListener('online', updateSyncStatus)
+  window.removeEventListener('offline', updateSyncStatus)
 })
 </script>
 
@@ -297,7 +425,7 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
-/* ✅ NOVO: Estilos do Banner de Conexão */
+/* ===== Banner de Conexão ===== */
 .connection-banner {
   background: linear-gradient(135deg, #fbbf24, #f59e0b);
   color: white;
@@ -342,7 +470,7 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* ✅ NOVO: Indicador de Status no Header */
+/* ===== Indicador de Status ===== */
 .connection-status {
   width: 12px;
   height: 12px;
@@ -375,7 +503,7 @@ onMounted(() => {
   50% { opacity: 0.5; }
 }
 
-/* ✅ NOVO: Aviso de Modo Offline */
+/* ===== Aviso de Modo Offline ===== */
 .offline-warning {
   background: #fef3c7;
   border: 2px solid #fbbf24;
@@ -397,6 +525,58 @@ onMounted(() => {
   line-height: 1.5;
 }
 
+/* ===== ✅ NOVO: Info do Cliente ===== */
+.client-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #f0fdf4;
+  border-radius: 8px;
+  color: #15803d;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.client-info svg {
+  flex-shrink: 0;
+}
+
+.client-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #fef3c7;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.client-warning svg {
+  flex-shrink: 0;
+}
+
+.client-email {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: #eff6ff;
+  border-radius: 8px;
+  color: #1e40af;
+  font-size: 0.85rem;
+}
+
+.client-email svg {
+  flex-shrink: 0;
+}
+
+/* ===== Container ===== */
 .close-order-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f8fafc, #f1f5f9);
