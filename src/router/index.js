@@ -45,7 +45,12 @@ const router = createRouter({
     // ============================================
     // ROTAS PÚBLICAS
     // ============================================
-    
+    {
+  path: '/pedidos-finalizados',
+  name: 'pedidos-finalizados',
+  component: () => import('../views/garcom/PedidosFinalizadosView.vue'),
+  meta: { requiresAuth: true, role: 'garcom' }
+},
     {
       path: '/unauthorized',
       name: 'unauthorized',
