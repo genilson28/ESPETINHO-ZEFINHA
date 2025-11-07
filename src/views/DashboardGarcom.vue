@@ -18,6 +18,14 @@
             </svg>
             Sair
           </button>
+
+          <button
+  @click="router.push('/pedidos-finalizados')"
+  class="btn-pedidos"
+>
+  <Receipt :size="20" />
+  Ver Meus Pedidos
+</button>
         </div>
       </div>
     </header>
