@@ -14,8 +14,8 @@ const cartStore = useCartStore()
 const navigationStore = useNavigationStore()
 const userStore = useUserStore()
 
-const tableId = ref(route.query.mesaId || route.params.idMesa)
-const tableNumber = ref(route.query.mesaNumero || null)
+const tableId = ref(null)
+const tableNumber = ref(null)
 
 const products = ref([])
 const tables = ref([])
@@ -34,11 +34,22 @@ const paymentMethods = [
 ]
 
 onMounted(async () => {
+  // ✅ CORRIGIDO: Pega corretamente da query
+  tableId.value = route.query.mesaId || route.query.mesa
+  tableNumber.value = route.query.mesaNumero
+  
   const mode = route.query.mode
+  
+  console.log('🔧 PDV Iniciado:', { 
+    tableId: tableId.value, 
+    tableNumber: tableNumber.value, 
+    mode,
+    query: route.query 
+  })
   
   if (!tableId.value && mode !== 'balcao') {
     alert('Mesa não especificada!')
-    router.push('/tables')
+    router.push('/dashboard-garcom')
     return
   }
 
@@ -65,6 +76,7 @@ onMounted(async () => {
   await fetchProducts()
   await fetchTables()
 })
+
 watch(() => cartStore.cartItems.length, async (newLength, oldLength) => {
   if (oldLength === 0 && newLength > 0) await updateTableStatusOccupied()
   else if (oldLength > 0 && newLength === 0) await updateTableStatusAvailable()
@@ -143,12 +155,12 @@ const getCategoryIcon = (category) => {
   return 'package'
 }
 
-// FUNÇÃO CORRIGIDA - Mantém carrinho ao sair
+// ✅ CORRIGIDO - Volta para dashboard do garçom
 const goBack = () => {
   // Se o carrinho já está persistido (comanda aberta), apenas volta
   if (cartStore.isCartPersisted) {
     console.log('📌 Comanda mantida - voltando para dashboard')
-    router.push('/dashboard-gerente')
+    router.push('/dashboard-garcom')
     return
   }
   
@@ -167,8 +179,8 @@ const goBack = () => {
     }
   }
   
-  // Redireciona para o dashboard do gerente
-  router.push('/dashboard-gerente')
+  // Redireciona para o dashboard do garçom
+  router.push('/dashboard-garcom')
 }
 
 const nextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++ }
@@ -276,6 +288,9 @@ async function finalizeOrder() {
     // Remove o carrinho após finalização
     await cartStore.finalizeCartAfterPayment(tableId.value)
     await fetchProducts()
+    
+    // Volta para o dashboard
+    router.push('/dashboard-garcom')
   } catch (error) {
     console.error('Erro ao finalizar pedido:', error)
     alert('Erro ao registrar pedido. Tente novamente.')
@@ -604,7 +619,6 @@ async function fetchTables() {
   padding: 0; 
 }
 
-/* Container Principal - Sem rolagem */
 .pdv-professional {
   display: flex;
   flex-direction: column;
@@ -615,7 +629,6 @@ async function fetchTables() {
   overflow: hidden;
 }
 
-/* Header Profissional */
 .professional-header {
   background: white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -802,7 +815,6 @@ async function fetchTables() {
   box-shadow: 0 2px 8px rgba(211, 47, 47, 0.3);
 }
 
-/* Conteúdo Principal - Sem rolagem */
 .main-content {
   display: flex;
   flex: 1;
@@ -810,7 +822,6 @@ async function fetchTables() {
   height: calc(100vh - 90px);
 }
 
-/* Seção de Produtos - Sem rolagem interna */
 .products-section {
   flex: 1;
   display: flex;
@@ -906,7 +917,6 @@ async function fetchTables() {
   border-color: #333;
 }
 
-/* Grid de produtos - Sem rolagem */
 .products-grid-wrapper {
   flex: 1;
   overflow: hidden;
@@ -1173,7 +1183,6 @@ async function fetchTables() {
   font-size: 0.8rem;
 }
 
-/* Seção do Carrinho - Sem rolagem */
 .cart-section-pro {
   width: 380px;
   flex-shrink: 0;
@@ -1213,7 +1222,6 @@ async function fetchTables() {
   font-size: 0.75rem;
 }
 
-/* Itens do carrinho - Sem rolagem */
 .cart-items-wrapper {
   flex: 1;
   overflow: hidden;
@@ -1594,7 +1602,6 @@ async function fetchTables() {
   transform: none;
 }
 
-/* Responsivo */
 @media (max-width: 1400px) {
   .products-grid-pro {
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -1636,6 +1643,12 @@ async function fetchTables() {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
+    height: auto;
+    padding: 1rem;
+  }
+  
+  .professional-header {
+    height: auto;
   }
   
   .header-left,
