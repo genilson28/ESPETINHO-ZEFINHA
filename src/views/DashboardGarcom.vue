@@ -174,7 +174,7 @@ import { supabase } from '@/services/supabase'
 
 const TABELA_MESAS = 'pwa_mesas'
 const TABELA_PEDIDOS = 'pwa_pedidos'
-const TABELA_USERS = 'pwa_users'
+const TABELA_USERS = 'pwa_usuarios'  // ✅ CORRIGIDO: era pwa_users
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -207,28 +207,39 @@ async function carregarMesas() {
   try {
     loading.value = true
     
-    // Busca mesas com pedidos ativos e dados do garçom
-    const { data, error } = await supabase
+    console.log('🔍 Buscando mesas da tabela:', TABELA_MESAS)
+    
+    // ✅ QUERY SIMPLIFICADA - Busca todas as mesas primeiro
+    const { data: mesasData, error: mesasError } = await supabase
       .from(TABELA_MESAS)
-      .select(`
-        *,
-        pedido_ativo:${TABELA_PEDIDOS}!${TABELA_PEDIDOS}_mesa_id_fkey(
-          id,
-          total,
-          garcom_id,
-          garcom:${TABELA_USERS}!${TABELA_PEDIDOS}_garcom_id_fkey(nome)
-        )
-      `)
-      .eq(`pedido_ativo.status`, 'aberto')
+      .select('*')
       .order('numero', { ascending: true })
 
-    if (error) throw error
+    if (mesasError) throw mesasError
 
-    // Processa dados para incluir valor e garçom
-    mesas.value = (data || []).map(mesa => {
-      const pedidoAtivo = Array.isArray(mesa.pedido_ativo) 
-        ? mesa.pedido_ativo[0] 
-        : mesa.pedido_ativo
+    console.log('✅ Mesas carregadas:', mesasData.length)
+
+    // ✅ Busca pedidos ativos separadamente
+    const { data: pedidosData, error: pedidosError } = await supabase
+      .from(TABELA_PEDIDOS)
+      .select(`
+        id,
+        mesa_id,
+        total,
+        garcom_id,
+        garcom:${TABELA_USERS}!garcom_id(nome)
+      `)
+      .eq('status', 'aberto')
+
+    if (pedidosError) {
+      console.warn('⚠️ Erro ao buscar pedidos:', pedidosError)
+    }
+
+    console.log('📋 Pedidos ativos:', pedidosData?.length || 0)
+
+    // ✅ Junta os dados
+    mesas.value = mesasData.map(mesa => {
+      const pedidoAtivo = pedidosData?.find(p => p.mesa_id === mesa.id)
       
       return {
         ...mesa,
@@ -237,9 +248,11 @@ async function carregarMesas() {
       }
     })
 
-    console.log('✅ Mesas carregadas:', mesas.value.length)
+    console.log('✅ Processamento concluído:', mesas.value.length, 'mesas')
+
   } catch (error) {
     console.error('❌ Erro ao carregar mesas:', error)
+    alert('Erro ao carregar mesas. Verifique o console.')
   } finally {
     loading.value = false
   }
@@ -252,7 +265,7 @@ function setupRealtime() {
       'postgres_changes',
       { event: '*', schema: 'public', table: TABELA_MESAS },
       () => {
-        console.log('🔄 Mesa atualizada, recarregando...')
+        console.log('🔄 Mesa atualizada')
         carregarMesas()
       }
     )
@@ -260,7 +273,7 @@ function setupRealtime() {
       'postgres_changes',
       { event: '*', schema: 'public', table: TABELA_PEDIDOS },
       () => {
-        console.log('🔄 Pedido atualizado, recarregando mesas...')
+        console.log('🔄 Pedido atualizado')
         carregarMesas()
       }
     )
@@ -270,7 +283,6 @@ function setupRealtime() {
 function abrirMesa(mesa) {
   console.log('🍽️ Abrindo mesa:', mesa.numero, 'ID:', mesa.id)
   
-  // ✅ CORRIGIDO: Usa 'mesaId' e 'mesaNumero' que o PDV espera
   router.push({
     name: 'pdv',
     query: { 
@@ -317,7 +329,6 @@ button {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Mobile */
 @media (max-width: 640px) {
   .grid {
     grid-template-columns: repeat(2, 1fr);
