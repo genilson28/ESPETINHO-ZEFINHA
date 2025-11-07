@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <!-- Header -->
-    <header class="bg-white shadow-sm border-b border-gray-200">
+    <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div class="flex items-center justify-between">
           <div>
@@ -9,7 +9,6 @@
             <p class="text-sm text-gray-500 mt-1">Olá, {{ userName }} 👋</p>
           </div>
           
-          <!-- Botão Sair -->
           <button
             @click="handleLogout"
             class="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -23,7 +22,6 @@
       </div>
     </header>
 
-    <!-- Filtros e Stats -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <!-- Stats Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
@@ -72,9 +70,9 @@
 
       <!-- Filtro -->
       <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-center gap-4">
           <label class="text-sm font-medium text-gray-700">Filtrar:</label>
-          <div class="flex gap-2">
+          <div class="flex flex-wrap gap-2">
             <button
               @click="filtro = 'todas'"
               :class="[
@@ -123,20 +121,35 @@
           v-for="mesa in mesasFiltradas"
           :key="mesa.id"
           @click="abrirMesa(mesa)"
-          class="relative p-6 rounded-xl shadow-md transition-all duration-200 transform hover:scale-105"
+          :class="[
+            'relative p-6 rounded-xl shadow-md transition-all duration-200 transform hover:scale-105',
+            mesa.status === 'ocupada' 
+              ? 'bg-gradient-to-br from-red-500 to-red-600 text-white' 
+              : 'bg-gradient-to-br from-green-500 to-green-600 text-white'
+          ]"
         >
           <div class="text-center">
-            <p class="text-2xl font-bold">{{ mesa.numero }}</p>
-            <p class="text-xs opacity-90 mt-1">{{ mesa.status === 'ocupada' ? 'Ocupada' : 'Livre' }}</p>
+            <p class="text-3xl font-bold mb-1">{{ mesa.numero }}</p>
+            <p class="text-xs opacity-90">{{ mesa.status === 'ocupada' ? 'Ocupada' : 'Livre' }}</p>
           </div>
 
+          <!-- Capacidade -->
           <div class="absolute top-2 right-2 bg-white bg-opacity-30 backdrop-blur-sm px-2 py-1 rounded-full">
             <p class="text-xs font-medium">{{ mesa.capacidade }} pessoas</p>
           </div>
 
-          <div v-if="mesa.status === 'ocupada' && mesa.pedidos_ativos > 0" 
-               class="absolute top-2 left-2 bg-white text-red-600 px-2 py-1 rounded-full">
-            <p class="text-xs font-bold">{{ mesa.pedidos_ativos }} pedido(s)</p>
+          <!-- Valor Total se ocupada -->
+          <div v-if="mesa.status === 'ocupada' && mesa.valor_total > 0" 
+               class="absolute bottom-2 left-2 right-2 bg-white bg-opacity-95 backdrop-blur-sm px-2 py-1.5 rounded-lg shadow-lg">
+            <p class="text-xs font-bold text-gray-900 text-center">
+              R$ {{ formatarValor(mesa.valor_total) }}
+            </p>
+          </div>
+
+          <!-- Nome do Garçom -->
+          <div v-if="mesa.status === 'ocupada' && mesa.garcom_nome" 
+               class="absolute top-2 left-2 bg-white bg-opacity-30 backdrop-blur-sm px-2 py-1 rounded-full">
+            <p class="text-xs font-medium">{{ mesa.garcom_nome }}</p>
           </div>
         </button>
       </div>
@@ -159,21 +172,19 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { supabase } from '@/services/supabase'
 
-// ✅ CONFIGURAÇÃO: Altere aqui o nome da sua tabela
-const TABELA_MESAS = 'pwa_mesas' // ou 'mesas' se for a outra
+const TABELA_MESAS = 'pwa_mesas'
+const TABELA_PEDIDOS = 'pwa_pedidos'
+const TABELA_USERS = 'pwa_users'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-// State
 const mesas = ref([])
 const loading = ref(true)
 const filtro = ref('todas')
 let realtimeSubscription = null
 
-// Computed
 const userName = computed(() => userStore.profile?.nome || 'Garçom')
-
 const totalMesas = computed(() => mesas.value.length)
 const mesasOcupadas = computed(() => mesas.value.filter(m => m.status === 'ocupada').length)
 const mesasLivres = computed(() => mesas.value.filter(m => m.status === 'livre').length)
@@ -188,23 +199,45 @@ const mesasFiltradas = computed(() => {
   return mesas.value
 })
 
-// Methods
+function formatarValor(valor) {
+  return Number(valor || 0).toFixed(2).replace('.', ',')
+}
+
 async function carregarMesas() {
   try {
     loading.value = true
     
-    console.log('🔍 Buscando mesas da tabela:', TABELA_MESAS)
-    
+    // Busca mesas com pedidos ativos e dados do garçom
     const { data, error } = await supabase
       .from(TABELA_MESAS)
-      .select('*')
+      .select(`
+        *,
+        pedido_ativo:${TABELA_PEDIDOS}!${TABELA_PEDIDOS}_mesa_id_fkey(
+          id,
+          total,
+          garcom_id,
+          garcom:${TABELA_USERS}!${TABELA_PEDIDOS}_garcom_id_fkey(nome)
+        )
+      `)
+      .eq(`pedido_ativo.status`, 'aberto')
       .order('numero', { ascending: true })
-    
-    console.log('📦 Resposta do Supabase:', { data, error, total: data?.length || 0 })
 
     if (error) throw error
 
-    mesas.value = data || []
+    // Processa dados para incluir valor e garçom
+    mesas.value = (data || []).map(mesa => {
+      const pedidoAtivo = Array.isArray(mesa.pedido_ativo) 
+        ? mesa.pedido_ativo[0] 
+        : mesa.pedido_ativo
+      
+      return {
+        ...mesa,
+        valor_total: pedidoAtivo?.total || 0,
+        garcom_nome: pedidoAtivo?.garcom?.nome || null
+      }
+    })
+
+    console.log('✅ Mesas carregadas:', mesas.value.length)
   } catch (error) {
     console.error('❌ Erro ao carregar mesas:', error)
   } finally {
@@ -213,45 +246,37 @@ async function carregarMesas() {
 }
 
 function setupRealtime() {
-  console.log('🔄 Configurando realtime para tabela:', TABELA_MESAS)
-  
   realtimeSubscription = supabase
-    .channel('mesas_garcom')
+    .channel('mesas_updates')
     .on(
       'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: TABELA_MESAS
-      },
-      (payload) => {
-        console.log('🔔 Mudança detectada:', payload)
-        
-        if (payload.eventType === 'INSERT') {
-          mesas.value.push(payload.new)
-        } else if (payload.eventType === 'UPDATE') {
-          const index = mesas.value.findIndex(m => m.id === payload.new.id)
-          if (index !== -1) {
-            mesas.value[index] = payload.new
-          }
-        } else if (payload.eventType === 'DELETE') {
-          mesas.value = mesas.value.filter(m => m.id !== payload.old.id)
-        }
-        
-        // Ordenar por número
-        mesas.value.sort((a, b) => a.numero - b.numero)
+      { event: '*', schema: 'public', table: TABELA_MESAS },
+      () => {
+        console.log('🔄 Mesa atualizada, recarregando...')
+        carregarMesas()
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: TABELA_PEDIDOS },
+      () => {
+        console.log('🔄 Pedido atualizado, recarregando mesas...')
+        carregarMesas()
       }
     )
     .subscribe()
 }
 
 function abrirMesa(mesa) {
-  console.log('🍽️ Abrindo mesa:', mesa.numero)
+  console.log('🍽️ Abrindo mesa:', mesa.numero, 'ID:', mesa.id)
   
-  // Vai para o PDV com o ID da mesa
+  // ✅ CORRIGIDO: Usa 'mesaId' e 'mesaNumero' que o PDV espera
   router.push({
     name: 'pdv',
-    query: { mesa: mesa.id }
+    query: { 
+      mesaId: mesa.id,
+      mesaNumero: mesa.numero
+    }
   })
 }
 
@@ -266,7 +291,6 @@ async function handleLogout() {
   }
 }
 
-// Lifecycle
 onMounted(async () => {
   await carregarMesas()
   setupRealtime()
@@ -280,22 +304,23 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Animações suaves */
 button {
   transition: all 0.2s ease;
 }
 
-/* Efeito de pulso para mesas ocupadas */
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.8;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.9; }
 }
 
-.bg-red-500 {
+.from-red-500 {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>
