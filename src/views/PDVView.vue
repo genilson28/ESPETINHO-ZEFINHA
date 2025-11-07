@@ -22,7 +22,7 @@ const tables = ref([])
 const searchQuery = ref('')
 const selectedCategory = ref('all')
 const currentPage = ref(1)
-const productsPerPage = 6
+const productsPerPage = 20
 const currentCartPage = ref(1)
 const itemsPerCartPage = 4
 
@@ -39,26 +39,16 @@ onMounted(async () => {
   
   const mode = route.query.mode
   
-  console.log('🔧 PDV Iniciado:', { 
-    tableId: tableId.value, 
-    tableNumber: tableNumber.value, 
-    mode,
-    query: route.query 
-  })
-  
   if (!tableId.value && mode !== 'balcao') {
     alert('Mesa não especificada!')
     router.push('/dashboard-garcom')
     return
   }
 
-  console.log('🔧 Inicializando mesa no carrinho:', tableId.value)
-  
   if (!cartStore.getCartByTable(tableId.value)) {
     await cartStore.initializeTable(tableId.value)
   } else {
     cartStore.currentTableId = tableId.value
-    console.log('📦 Carrinho existente carregado:', cartStore.cartItems.length, 'itens')
   }
   
   const from = route.query.from || navigationStore.currentContext.from || 'tables'
@@ -154,7 +144,6 @@ const getCategoryIcon = (category) => {
 
 const goBack = () => {
   if (cartStore.isCartPersisted) {
-    console.log('📌 Comanda mantida - voltando para dashboard')
     router.push('/dashboard-garcom')
     return
   }
@@ -164,10 +153,8 @@ const goBack = () => {
     
     if (userChoice) {
       cartStore.persistCart()
-      console.log('✅ Carrinho persistido - comanda mantida')
     } else {
       cartStore.clearCart()
-      console.log('🧹 Carrinho limpo pelo usuário')
     }
   }
   
@@ -308,278 +295,134 @@ async function fetchTables() {
 </script>
 
 <template>
-  <div class="pdv-professional">
-    <div class="professional-header">
-      <div class="header-container">
-        <div class="header-left">
-          <button @click="goBack" class="btn-back-pro">
-            <ArrowLeft :size="20" />
-          </button>
-          
-          <div class="header-brand">
-            <div class="logo-pro">
-              <img src="/logo.png" alt="Point da Zefinha" class="logo-image" />
-            </div>
-            <div class="brand-info">
-              <h1 class="brand-title">Point da Zefinha</h1>
-              <div class="brand-meta">
-                <div class="meta-item">
-                  <span class="meta-label">Mesa:</span>
-                  <span class="meta-value">{{ getTableNumber(tableId) }}</span>
-                </div>
-                <div class="meta-divider">|</div>
-                <div class="meta-item status-active">
-                  <Clock :size="14" />
-                  <span>Em Atendimento</span>
-                </div>
-                <div v-if="cartStore.isCartPersisted" class="meta-item status-persisted">
-                  <Check :size="14" />
-                  <span>Comanda Aberta</span>
-                </div>
-              </div>
-            </div>
-          </div>
+  <div class="pdv-mobile">
+    <!-- Header Mobile -->
+    <div class="mobile-header">
+      <div class="header-top">
+        <button @click="goBack" class="btn-back">
+          <ArrowLeft :size="24" />
+        </button>
+        <div class="header-info">
+          <h1 class="title">Mesa {{ getTableNumber(tableId) }}</h1>
+          <div class="total-badge">R$ {{ formatPrice(cartStore.total) }}</div>
         </div>
-
-        <div class="header-right">
-          <div class="total-display">
-            <div class="total-label">Valor Total</div>
-            <div class="total-value">R$ {{ formatPrice(cartStore.total) }}</div>
-          </div>
-          <div class="cart-icon-wrapper">
-            <ShoppingCart :size="22" />
-            <div v-if="cartItemsCount > 0" class="cart-badge">{{ cartItemsCount }}</div>
-          </div>
+        <div class="cart-indicator">
+          <ShoppingCart :size="24" />
+          <span v-if="cartItemsCount > 0" class="badge">{{ cartItemsCount }}</span>
         </div>
       </div>
     </div>
 
-    <div class="main-content">
-      <div class="products-section">
-        <div class="search-wrapper">
-          <Search :size="20" class="search-icon" />
-          <input 
-            v-model="searchQuery" 
-            type="text" 
-            placeholder="Buscar produtos..." 
-            class="search-input-pro"
-          />
-          <button v-if="searchQuery" @click="searchQuery = ''" class="search-clear">
-            <X :size="18" />
-          </button>
+    <!-- Busca -->
+    <div class="search-section">
+      <div class="search-box">
+        <Search :size="20" class="search-icon" />
+        <input 
+          v-model="searchQuery" 
+          type="text" 
+          placeholder="Buscar produtos..." 
+          class="search-input"
+        />
+        <button v-if="searchQuery" @click="searchQuery = ''" class="search-clear">
+          <X :size="20" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Categorias -->
+    <div class="categories-section">
+      <button 
+        v-for="category in categories" 
+        :key="category.id"
+        @click="selectedCategory = category.id; currentPage = 1"
+        class="category-chip"
+        :class="{ active: selectedCategory === category.id }">
+        {{ category.name }}
+      </button>
+    </div>
+
+    <!-- Lista de Produtos -->
+    <div class="products-list">
+      <div v-if="paginatedProducts.length === 0" class="empty-state">
+        <Package :size="48" />
+        <p>Nenhum produto encontrado</p>
+      </div>
+      
+      <div 
+        v-for="product in paginatedProducts" 
+        :key="product.id"
+        class="product-item"
+        :class="{ 'out-of-stock': product.estoque_atual <= 0 }">
+        
+        <div class="product-image">
+          <img v-if="product.imagem_url" :src="product.imagem_url" :alt="product.nome" />
+          <div v-else class="product-icon" :class="`icon-${product.categoria}`">
+            <Utensils v-if="getCategoryIcon(product.categoria) === 'utensils'" :size="40" />
+            <Coffee v-else-if="getCategoryIcon(product.categoria) === 'coffee'" :size="40" />
+            <ChefHat v-else-if="getCategoryIcon(product.categoria) === 'chef-hat'" :size="40" />
+            <Package v-else :size="40" />
+          </div>
         </div>
 
-        <div class="categories-tabs">
-          <button 
-            v-for="category in categories" 
-            :key="category.id"
-            @click="selectedCategory = category.id; currentPage = 1"
-            class="category-btn"
-            :class="{ active: selectedCategory === category.id }">
-            <Utensils v-if="category.icon === 'utensils'" :size="18" />
-            <Coffee v-else-if="category.icon === 'coffee'" :size="18" />
-            <ChefHat v-else-if="category.icon === 'chef-hat'" :size="18" />
-            <Package v-else :size="18" />
-            {{ category.name }}
-          </button>
+        <div class="product-info">
+          <h3 class="product-name">{{ product.nome }}</h3>
+          <p v-if="product.descricao" class="product-desc">{{ product.descricao }}</p>
+          <div class="product-meta">
+            <span class="product-price">R$ {{ formatPrice(product.preco) }}</span>
+            <span class="product-stock" :class="{ 'no-stock': product.estoque_atual <= 0 }">
+              {{ product.estoque_atual > 0 ? `${product.estoque_atual} disponíveis` : 'Sem estoque' }}
+            </span>
+          </div>
         </div>
 
-        <div class="products-grid-wrapper">
-          <div v-if="paginatedProducts.length === 0" class="empty-products">
-            <Package :size="64" />
-            <p>Nenhum produto encontrado</p>
+        <div class="product-actions">
+          <div v-if="getProductQuantity(product.id) > 0" class="qty-controls">
+            <button @click="decrementQuantity(product.id)" class="qty-btn">
+              <Minus :size="20" />
+            </button>
+            <span class="qty-display">{{ getProductQuantity(product.id) }}</span>
+            <button @click="incrementQuantity(product.id)" class="qty-btn">
+              <Plus :size="20" />
+            </button>
           </div>
           
-          <div v-else class="products-grid-pro">
-            <div 
-              v-for="product in paginatedProducts" 
-              :key="product.id"
-              class="product-card-pro"
-              :class="{ 'out-of-stock': product.estoque_atual <= 0 }">
-              
-              <div class="product-image-wrapper">
-                <img v-if="product.imagem_url" :src="product.imagem_url" :alt="product.nome" class="product-image-pro" />
-                <div v-else class="product-icon-wrapper" :class="`icon-${product.categoria}`">
-                  <Utensils v-if="getCategoryIcon(product.categoria) === 'utensils'" :size="32" />
-                  <Coffee v-else-if="getCategoryIcon(product.categoria) === 'coffee'" :size="32" />
-                  <ChefHat v-else-if="getCategoryIcon(product.categoria) === 'chef-hat'" :size="32" />
-                  <Package v-else :size="32" />
-                </div>
-              </div>
-
-              <div class="product-details">
-                <div class="product-header">
-                  <h3 class="product-name-pro">{{ product.nome }}</h3>
-                  <div class="product-price-pro">R$ {{ formatPrice(product.preco) }}</div>
-                </div>
-                
-                <p v-if="product.descricao" class="product-desc-pro">{{ product.descricao }}</p>
-                
-                <div class="product-footer">
-                  <div class="product-stock-pro" :class="{ 'no-stock': product.estoque_atual <= 0 }">
-                    {{ product.estoque_atual > 0 ? `${product.estoque_atual} em estoque` : 'Sem estoque' }}
-                  </div>
-
-                  <div class="product-actions-pro">
-                    <div v-if="getProductQuantity(product.id) > 0" class="quantity-controls-pro">
-                      <button @click="decrementQuantity(product.id)" class="qty-btn-pro">
-                        <Minus :size="16" />
-                      </button>
-                      <span class="qty-display-pro">{{ getProductQuantity(product.id) }}</span>
-                      <button @click="incrementQuantity(product.id)" class="qty-btn-pro">
-                        <Plus :size="16" />
-                      </button>
-                    </div>
-                    
-                    <button 
-                      @click="addToCart(product)" 
-                      class="add-btn-pro"
-                      :disabled="product.estoque_atual <= 0">
-                      <Plus :size="20" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="totalPages > 1" class="pagination-pro">
-          <button @click="previousPage" :disabled="currentPage === 1" class="pagination-btn-pro">
-            <ChevronLeft :size="20" />
-          </button>
-          <div class="pagination-info">{{ currentPage }} / {{ totalPages }}</div>
-          <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-btn-pro">
-            <ChevronRight :size="20" />
+          <button 
+            @click="addToCart(product)" 
+            class="add-btn"
+            :disabled="product.estoque_atual <= 0">
+            <Plus :size="24" />
           </button>
         </div>
       </div>
+    </div>
 
-      <div class="cart-section-pro">
-        <div class="cart-container-pro">
-          <div class="cart-header-pro">
-            <h2 class="cart-title-pro">Carrinho de Compras</h2>
-            <div class="cart-count-badge">{{ cartItemsCount }} {{ cartItemsCount === 1 ? 'item' : 'itens' }}</div>
-          </div>
+    <!-- Bottom Sheet Carrinho -->
+    <div v-if="cartItemsCount > 0" class="cart-bottom-sheet">
+      <div class="cart-summary">
+        <div class="summary-info">
+          <span class="summary-label">{{ cartItemsCount }} {{ cartItemsCount === 1 ? 'item' : 'itens' }}</span>
+          <span class="summary-total">R$ {{ formatPrice(cartStore.total) }}</span>
+        </div>
+        
+        <div class="payment-quick">
+          <button 
+            v-for="method in paymentMethods" 
+            :key="method.id"
+            @click="cartStore.setPaymentMethod(method.id)"
+            class="payment-chip"
+            :class="{ active: cartStore.selectedPayment === method.id }">
+            {{ method.name }}
+          </button>
+        </div>
 
-          <div class="cart-items-wrapper">
-            <div v-if="cartStore.cartItems.length === 0" class="empty-cart-pro">
-              <ShoppingCart :size="64" />
-              <p>Carrinho vazio</p>
-            </div>
-
-            <div v-else>
-              <div class="cart-items-pro">
-                <div 
-                  v-for="item in paginatedCartItems" 
-                  :key="item.product.id"
-                  class="cart-item-pro">
-                  
-                  <div class="cart-item-header">
-                    <div class="cart-item-info">
-                      <div class="cart-item-name">{{ item.product.nome }}</div>
-                      <div class="cart-item-prices">
-                        <span class="item-unit-price">R$ {{ formatPrice(item.product.preco) }}</span>
-                        <span class="item-multiplier">×</span>
-                        <span class="item-quantity">{{ item.quantity }}</span>
-                        <span class="item-equals">=</span>
-                        <span class="item-subtotal">R$ {{ formatPrice(item.product.preco * item.quantity) }}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="cart-item-actions">
-                    <div class="cart-qty-controls">
-                      <button @click="decrementQuantity(item.product.id)" class="cart-qty-btn">
-                        <Minus :size="14" />
-                      </button>
-                      <span class="cart-qty-display">{{ item.quantity }}</span>
-                      <button @click="incrementQuantity(item.product.id)" class="cart-qty-btn">
-                        <Plus :size="14" />
-                      </button>
-                    </div>
-                    <button @click="removeFromCart(item.product.id)" class="cart-delete-btn">
-                      <Trash2 :size="14" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div v-if="totalCartPages > 1" class="cart-pagination">
-                <button @click="previousCartPage" :disabled="currentCartPage === 1" class="cart-page-btn">
-                  <ChevronUp :size="16" />
-                </button>
-                <span class="cart-page-info">{{ currentCartPage }} / {{ totalCartPages }}</span>
-                <button @click="nextCartPage" :disabled="currentCartPage === totalCartPages" class="cart-page-btn">
-                  <ChevronDown :size="16" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="discount-section-pro">
-            <div class="section-title-pro">
-              <Sparkles :size="16" />
-              Desconto
-            </div>
-            <div class="discount-inputs">
-              <select v-model="cartStore.discountType" class="discount-select-pro">
-                <option value="percentage">%</option>
-                <option value="fixed">R$</option>
-              </select>
-              <input 
-                v-model.number="cartStore.discountValue" 
-                type="number" 
-                min="0" 
-                :max="cartStore.discountType === 'percentage' ? 100 : cartStore.subtotal"
-                placeholder="0" 
-                class="discount-input-pro"
-              />
-            </div>
-          </div>
-
-          <div class="payment-section-pro">
-            <div class="section-title-pro">Forma de Pagamento</div>
-            <div class="payment-grid">
-              <button 
-                v-for="method in paymentMethods" 
-                :key="method.id"
-                @click="cartStore.setPaymentMethod(method.id)"
-                class="payment-btn-pro"
-                :class="{ active: cartStore.selectedPayment === method.id }">
-                <Banknote v-if="method.icon === 'banknote'" :size="18" />
-                <CreditCard v-else-if="method.icon === 'credit-card'" :size="18" />
-                <Smartphone v-else-if="method.icon === 'smartphone'" :size="18" />
-                <span>{{ method.name }}</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="summary-section-pro">
-            <div class="summary-row">
-              <span>Subtotal</span>
-              <span class="summary-value">R$ {{ formatPrice(cartStore.subtotal) }}</span>
-            </div>
-            <div v-if="cartStore.discountAmount > 0" class="summary-row discount-row">
-              <span>Desconto</span>
-              <span class="summary-value">- R$ {{ formatPrice(cartStore.discountAmount) }}</span>
-            </div>
-            <div class="summary-row total-row">
-              <span>Total a Pagar</span>
-              <span class="summary-value total-value">R$ {{ formatPrice(cartStore.total) }}</span>
-            </div>
-
-            <div class="action-buttons-pro">
-              <button @click="clearCartConfirm" class="btn-clear-pro" :disabled="cartStore.cartItems.length === 0">
-                <Trash2 :size="18" />
-                Limpar
-              </button>
-              <button @click="finalizeOrder" class="btn-confirm-pro" :disabled="cartStore.cartItems.length === 0">
-                <Check :size="18" />
-                Finalizar Pedido
-              </button>
-            </div>
-          </div>
+        <div class="cart-actions">
+          <button @click="clearCartConfirm" class="btn-clear">
+            <Trash2 :size="20" />
+          </button>
+          <button @click="finalizeOrder" class="btn-finalize">
+            <Check :size="20" />
+            Finalizar Pedido
+          </button>
         </div>
       </div>
     </div>
@@ -587,1205 +430,430 @@ async function fetchTables() {
 </template>
 
 <style scoped>
-* { 
-  box-sizing: border-box; 
-  margin: 0; 
-  padding: 0; 
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.pdv-professional {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  max-height: 100vh;
-  background: #f5f5f5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  overflow: hidden;
+.pdv-mobile {
+  min-height: 100vh;
+  background: #f8f9fa;
+  padding-bottom: 180px;
 }
 
-.professional-header {
+/* HEADER */
+.mobile-header {
   background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  flex-shrink: 0;
-  border-bottom: 1px solid #e0e0e0;
-  height: 90px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
-.header-container {
-  height: 100%;
-  max-width: 100%;
-  padding: 0 2rem;
+.header-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.btn-back-pro {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
+.btn-back {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  color: #333;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.btn-back-pro:hover {
-  background: #e8e8e8;
-  border-color: #d0d0d0;
+.header-info {
+  flex: 1;
 }
 
-.header-brand {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.logo-pro {
-  width: 52px;
-  height: 52px;
-  background: #f5f5f5;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #e0e0e0;
-}
-
-.logo-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 8px;
-}
-
-.brand-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.brand-title {
-  color: #333;
-  font-size: 1.5rem;
+.title {
+  font-size: 1.25rem;
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.5px;
-}
-
-.brand-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.875rem;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: #666;
-}
-
-.meta-label {
-  color: #999;
-  font-weight: 500;
-}
-
-.meta-value {
-  font-weight: 600;
   color: #333;
-}
-
-.meta-divider {
-  color: #d0d0d0;
-}
-
-.status-active {
-  padding: 0.3rem 0.75rem;
-  border-radius: 6px;
-  background: #e8f5e9;
-  border: 1px solid #c8e6c9;
-  color: #2e7d32;
-  font-weight: 600;
-}
-
-.status-persisted {
-  padding: 0.3rem 0.75rem;
-  border-radius: 6px;
-  background: #e3f2fd;
-  border: 1px solid #bbdefb;
-  color: #1565c0;
-  font-weight: 600;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.total-display {
-  text-align: right;
-  padding-right: 1.5rem;
-  border-right: 1px solid #e0e0e0;
-}
-
-.total-label {
-  color: #999;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   margin-bottom: 0.25rem;
 }
 
-.total-value {
-  color: #333;
-  font-size: 1.75rem;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
+.total-badge {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2e7d32;
 }
 
-.cart-icon-wrapper {
-  width: 52px;
-  height: 52px;
-  border-radius: 8px;
+.cart-indicator {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: #f5f5f5;
-  border: 1px solid #e0e0e0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #333;
-  position: relative;
 }
 
-.cart-badge {
+.badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
-  border-radius: 12px;
+  top: -4px;
+  right: -4px;
   background: #d32f2f;
   color: white;
+  font-size: 0.7rem;
   font-weight: 700;
-  font-size: 0.75rem;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(211, 47, 47, 0.3);
+  padding: 0 6px;
 }
 
-.main-content {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  height: calc(100vh - 90px);
-}
-
-.products-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+/* BUSCA */
+.search-section {
   padding: 1rem;
-  gap: 1rem;
-  overflow: hidden;
-  background: #f5f5f5;
+  background: white;
 }
 
-.search-wrapper {
+.search-box {
   position: relative;
   display: flex;
   align-items: center;
-  flex-shrink: 0;
 }
 
 .search-icon {
   position: absolute;
   left: 1rem;
   color: #999;
-  pointer-events: none;
 }
 
-.search-input-pro {
+.search-input {
   width: 100%;
   padding: 0.875rem 1rem 0.875rem 3rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  background: white;
-  transition: all 0.2s ease;
-  color: #333;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 1rem;
+  background: #f8f9fa;
 }
 
-.search-input-pro:focus {
+.search-input:focus {
   outline: none;
-  border-color: #999;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+  border-color: #333;
+  background: white;
 }
 
 .search-clear {
   position: absolute;
-  right: 0.75rem;
-  background: none;
+  right: 0.5rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #f5f5f5;
   border: none;
-  color: #999;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 6px;
-  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
 }
 
-.search-clear:hover {
-  background: #f5f5f5;
-  color: #666;
-}
-
-.categories-tabs {
+/* CATEGORIAS */
+.categories-section {
+  padding: 1rem;
   display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-
-.category-btn {
-  display: flex;
-  align-items: center;
   gap: 0.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.categories-section::-webkit-scrollbar {
+  display: none;
+}
+
+.category-chip {
   padding: 0.75rem 1.25rem;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  border: 2px solid #e0e0e0;
   background: white;
   color: #666;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
-.category-btn:hover {
-  background: #f5f5f5;
-  border-color: #d0d0d0;
-  color: #333;
-}
-
-.category-btn.active {
+.category-chip.active {
   background: #333;
   color: white;
   border-color: #333;
 }
 
-.products-grid-wrapper {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+/* PRODUTOS */
+.products-list {
+  padding: 0 1rem 1rem;
 }
 
-.empty-products {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 0;
+.empty-state {
+  padding: 4rem 2rem;
+  text-align: center;
   color: #999;
-  gap: 1rem;
-  height: 100%;
 }
 
-.products-grid-pro {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 0.75rem;
-  height: 100%;
-  overflow: hidden;
-  align-content: start;
-}
-
-.product-card-pro {
+.product-item {
   background: white;
+  border-radius: 16px;
   padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
+  margin-bottom: 0.75rem;
   display: flex;
-  gap: 0.75rem;
-  transition: all 0.2s ease;
-  height: 140px;
+  gap: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.product-card-pro:hover {
-  border-color: #d0d0d0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.product-card-pro.out-of-stock {
+.product-item.out-of-stock {
   opacity: 0.5;
-  cursor: not-allowed;
 }
 
-.product-image-wrapper {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
+.product-image {
+  width: 90px;
+  height: 90px;
+  border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
-  position: relative;
-  border: 1px solid #e0e0e0;
+  background: #f5f5f5;
 }
 
-.product-image-pro {
+.product-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
 
-.product-icon-wrapper {
+.product-icon {
   width: 100%;
   height: 100%;
-  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  color: white;
 }
 
-.product-icon-wrapper.icon-espetinho {
+.product-icon.icon-espetinho {
   background: #fff3e0;
   color: #e65100;
 }
 
-.product-icon-wrapper.icon-bebida {
+.product-icon.icon-bebida {
   background: #e3f2fd;
   color: #1565c0;
 }
 
-.product-icon-wrapper.icon-acompanhamento {
+.product-icon.icon-acompanhamento {
   background: #e8f5e9;
   color: #2e7d32;
 }
 
-.product-details {
+.product-info {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
 }
 
-.product-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-}
-
-.product-name-pro {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #333;
-  line-height: 1.3;
-}
-
-.product-price-pro {
+.product-name {
   font-size: 1.1rem;
   font-weight: 700;
   color: #333;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.25rem;
 }
 
-.product-desc-pro {
+.product-desc {
+  font-size: 0.85rem;
   color: #666;
-  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
   line-height: 1.4;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
-.product-footer {
+.product-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: auto;
+}
+
+.product-price {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #2e7d32;
+}
+
+.product-stock {
+  font-size: 0.75rem;
+  color: #999;
+  font-weight: 600;
+}
+
+.product-stock.no-stock {
+  color: #d32f2f;
+}
+
+.product-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f5f5f5;
+  border-radius: 12px;
+  padding: 0.25rem;
+}
+
+.qty-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.qty-display {
+  font-weight: 700;
+  font-size: 1rem;
+  min-width: 30px;
+  text-align: center;
+}
+
+.add-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  background: #333;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.add-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* BOTTOM SHEET */
+.cart-bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 200;
+}
+
+.cart-summary {
+  padding: 1.5rem 1rem;
+}
+
+.summary-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.summary-label {
+  font-size: 1rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.summary-total {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.payment-quick {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.payment-chip {
+  padding: 0.625rem 1rem;
+  border-radius: 12px;
+  border: 2px solid #e0e0e0;
+  background: white;
+  color: #666;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.payment-chip.active {
+  background: #333;
+  color: white;
+  border-color: #333;
+}
+
+.cart-actions {
+  display: flex;
   gap: 0.75rem;
-  padding-top: 0.4rem;
 }
 
-.product-stock-pro {
-  font-size: 0.7rem;
-  color: #666;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.product-stock-pro.no-stock {
-  color: #d32f2f;
-}
-
-.product-actions-pro {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.quantity-controls-pro {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: #f5f5f5;
-  padding: 0.2rem;
-  border-radius: 6px;
-  border: 1px solid #e0e0e0;
-}
-
-.qty-btn-pro {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  background: white;
-  border: 1px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #333;
-}
-
-.qty-btn-pro:hover {
-  background: #333;
-  color: white;
-  border-color: #333;
-}
-
-.qty-display-pro {
-  font-weight: 700;
-  min-width: 22px;
-  text-align: center;
-  color: #333;
-  font-size: 0.8rem;
-}
-
-.add-btn-pro {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
-  background: #333;
-  color: white;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.add-btn-pro:hover:not(:disabled) {
-  background: #1a1a1a;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.add-btn-pro:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.pagination-pro {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e0e0e0;
-  flex-shrink: 0;
-}
-
-.pagination-btn-pro {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
-  background: white;
-  border: 1px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #333;
-}
-
-.pagination-btn-pro:hover:not(:disabled) {
-  background: #333;
-  color: white;
-  border-color: #333;
-}
-
-.pagination-btn-pro:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.pagination-info {
-  padding: 0.6rem 1.2rem;
-  border-radius: 6px;
-  background: #333;
-  color: white;
-  font-weight: 700;
-  font-size: 0.8rem;
-}
-
-.cart-section-pro {
-  width: 380px;
-  flex-shrink: 0;
-  border-left: 1px solid #e0e0e0;
-  background: white;
-}
-
-.cart-container-pro {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.cart-header-pro {
-  padding: 1rem 1.25rem;
-  background: #fafafa;
-  border-bottom: 1px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-}
-
-.cart-title-pro {
-  color: #333;
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.cart-count-badge {
-  padding: 0.3rem 0.7rem;
-  border-radius: 6px;
-  background: #333;
-  color: white;
-  font-weight: 700;
-  font-size: 0.75rem;
-}
-
-.cart-items-wrapper {
-  flex: 1;
-  overflow: hidden;
-  padding: 0.75rem;
-  background: white;
-  display: flex;
-  flex-direction: column;
-}
-
-.empty-cart-pro {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
-  color: #d0d0d0;
-  gap: 1rem;
-  height: 100%;
-}
-
-.cart-items-pro {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  flex: 1;
-  overflow: hidden;
-}
-
-.cart-item-pro {
-  background: #fafafa;
-  padding: 0.35rem 0.4rem;
-  border-radius: 5px;
-  border: 1px solid #f0f0f0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  transition: all 0.2s ease;
-}
-
-.cart-item-pro:hover {
-  background: #f5f5f5;
-  border-color: #e0e0e0;
-}
-
-.cart-item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.cart-item-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.cart-item-name {
-  font-weight: 700;
-  color: #333;
-  font-size: 0.65rem;
-  margin-bottom: 0.15rem;
-  line-height: 1.2;
-}
-
-.cart-item-prices {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  font-size: 0.6rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.item-unit-price {
-  color: #666;
-  font-weight: 500;
-}
-
-.item-multiplier,
-.item-equals {
-  color: #d0d0d0;
-  font-weight: 600;
-}
-
-.item-quantity {
-  color: #333;
-  font-weight: 700;
-}
-
-.item-subtotal {
-  font-weight: 700;
-  color: #333;
-}
-
-.cart-item-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.cart-qty-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  background: white;
-  padding: 0.1rem;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
-  flex: 1;
-}
-
-.cart-qty-btn {
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  background: #f5f5f5;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #333;
-}
-
-.cart-qty-btn:hover {
-  background: #e0e0e0;
-  color: #1a1a1a;
-}
-
-.cart-qty-display {
-  flex: 1;
-  text-align: center;
-  font-weight: 700;
-  color: #333;
-  font-size: 0.6rem;
-}
-
-.cart-delete-btn {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+.btn-clear {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
   background: #ffebee;
-  border: 1px solid #ffcdd2;
   color: #d32f2f;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
 }
 
-.cart-delete-btn:hover {
-  background: #ffcdd2;
-  border-color: #ef9a9a;
-}
-
-.cart-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  margin-top: 0.6rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid #e0e0e0;
-  flex-shrink: 0;
-}
-
-.cart-page-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+.btn-finalize {
+  flex: 1;
+  height: 56px;
+  border-radius: 12px;
   background: #333;
   color: white;
   border: none;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.cart-page-btn:hover:not(:disabled) {
-  background: #1a1a1a;
-}
-
-.cart-page-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.cart-page-info {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #666;
-}
-
-.discount-section-pro,
-.payment-section-pro,
-.summary-section-pro {
-  padding: 0.5rem 1.25rem;
-  border-top: 1px solid #e0e0e0;
-  background: white;
-  flex-shrink: 0;
-}
-
-.section-title-pro {
-  font-size: 0.6rem;
+  gap: 0.5rem;
   font-weight: 700;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.3rem;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.discount-inputs {
-  display: flex;
-  gap: 0.4rem;
-}
-
-.discount-select-pro {
-  width: 50px;
-  padding: 0.4rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 5px;
-  font-weight: 600;
-  font-size: 0.75rem;
-  background: white;
+  font-size: 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: #333;
 }
 
-.discount-select-pro:focus {
-  outline: none;
-  border-color: #999;
-}
-
-.discount-input-pro {
-  flex: 1;
-  padding: 0.4rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 5px;
-  font-size: 0.75rem;
-  transition: all 0.2s ease;
-  color: #333;
-}
-
-.discount-input-pro:focus {
-  outline: none;
-  border-color: #999;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
-}
-
-.payment-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.3rem;
-}
-
-.payment-btn-pro {
-  padding: 0.35rem 0.4rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 5px;
-  background: white;
-  font-weight: 600;
-  font-size: 0.65rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #333;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-}
-
-.payment-btn-pro:hover {
-  border-color: #d0d0d0;
-  background: #f5f5f5;
-}
-
-.payment-btn-pro.active {
-  background: #333;
-  color: white;
-  border-color: #333;
-}
-
-.summary-section-pro {
-  background: #fafafa;
-}
-
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.4rem;
-  color: #666;
-  font-size: 0.75rem;
-}
-
-.summary-value {
-  font-weight: 600;
-  color: #333;
-  font-variant-numeric: tabular-nums;
-}
-
-.summary-row.discount-row {
-  color: #2e7d32;
-}
-
-.summary-row.discount-row .summary-value {
-  font-weight: 700;
-  color: #2e7d32;
-}
-
-.summary-row.total-row {
-  border-top: 1px solid #e0e0e0;
-  padding-top: 0.4rem;
-  margin-top: 0.2rem;
-  margin-bottom: 0.6rem;
-  font-size: 0.8rem;
-  color: #333;
-  font-weight: 700;
-}
-
-.total-value {
-  font-size: 1.1rem;
-  color: #333;
-  font-weight: 800;
-}
-
-.action-buttons-pro {
-  display: flex;
-  gap: 0.6rem;
-}
-
-.btn-clear-pro,
-.btn-confirm-pro {
-  flex: 1;
-  padding: 0.6rem;
-  border: none;
-  border-radius: 6px;
-  font-weight: 700;
-  font-size: 0.75rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  transition: all 0.2s ease;
-}
-
-.btn-clear-pro {
-  background: #e0e0e0;
-  color: #333;
-}
-
-.btn-clear-pro:hover:not(:disabled) {
-  background: #d0d0d0;
-}
-
-.btn-confirm-pro {
-  background: #333;
-  color: white;
-}
-
-.btn-confirm-pro:hover:not(:disabled) {
-  background: #1a1a1a;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.btn-clear-pro:disabled,
-.btn-confirm-pro:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-@media (max-width: 1400px) {
-  .products-grid-pro {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+/* DESKTOP */
+@media (min-width: 769px) {
+  .pdv-mobile {
+    max-width: 480px;
+    margin: 0 auto;
   }
-}
-
-/* ✅ TABLET */
-@media (max-width: 1024px) {
-  .main-content {
-    flex-direction: column;
-  }
-  
-  .products-section {
-    height: 60vh;
-    overflow-y: auto;
-  }
-  
-  .products-grid-wrapper {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  .products-grid-pro {
-    overflow: visible;
-    height: auto;
-    grid-template-columns: 1fr;
-  }
-  
-  .product-card-pro {
-    height: auto;
-    min-height: 140px;
-  }
-  
-  .cart-section-pro {
-    width: 100%;
-    border-left: none;
-    border-top: 1px solid #e0e0e0;
-    height: 40vh;
-  }
-  
-  .header-container {
-    padding: 1rem 1.5rem;
-  }
-  
-  .brand-title {
-    font-size: 1.25rem;
-  }
-  
-  .logo-pro {
-    width: 48px;
-    height: 48px;
-  }
-}
-
-/* ✅ MOBILE */
-@media (max-width: 768px) {
-  .professional-header {
-    height: auto;
-  }
-  
-  .header-container {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: stretch;
-    height: auto;
-    padding: 1rem;
-  }
-  
-  .header-left,
-  .header-right {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .header-left {
-    flex-wrap: wrap;
-  }
-  
-  .header-brand {
-    flex: 1;
-    min-width: 200px;
-  }
-  
-  .brand-meta {
-    flex-wrap: wrap;
-  }
-  
-  .total-display {
-    border-right: none;
-    padding-right: 0;
-  }
-  
-  .products-section {
-    padding: 0.75rem;
-    height: 55vh;
-  }
-  
-  .categories-tabs {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding-bottom: 0.5rem;
-  }
-  
-  .categories-tabs::-webkit-scrollbar {
-    height: 4px;
-  }
-  
-  .categories-tabs::-webkit-scrollbar-track {
-    background: #f0f0f0;
-  }
-  
-  .categories-tabs::-webkit-scrollbar-thumb {
-    background: #d0d0d0;
-    border-radius: 2px;
-  }
-  
-  .products-grid-pro {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  
-  .product-card-pro {
-    flex-direction: column;
-    height: auto;
-    padding: 0.75rem;
-  }
-  
-  .product-image-wrapper {
-    width: 100%;
-    height: 120px;
-    margin-bottom: 0.5rem;
-  }
-  
-  .product-details {
-    gap: 0.5rem;
-  }
-  
-  .product-header {
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  
-  .product-name-pro {
-    font-size: 1.1rem;
-  }
-  
-  .product-price-pro {
-    font-size: 1.25rem;
-  }
-  
-  .product-footer {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
-  }
-  
-  .product-actions-pro {
-    justify-content: space-between;
-    width: 100%;
-  }
-  
-  .quantity-controls-pro {
-    flex: 1;
-    justify-content: center;
-  }
-  
-  .add-btn-pro {
-    width: 50px;
-    height: 50px;
-  }
-  
-  .cart-section-pro {
-    height: 45vh;
-  }
-  
-  .cart-items-wrapper {
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-}
-
-/* ✅ SCROLL CUSTOMIZADO */
-* {
-  -webkit-overflow-scrolling: touch;
-}
-
-.products-section::-webkit-scrollbar,
-.products-grid-wrapper::-webkit-scrollbar,
-.cart-items-wrapper::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.products-section::-webkit-scrollbar-track,
-.products-grid-wrapper::-webkit-scrollbar-track,
-.cart-items-wrapper::-webkit-scrollbar-track {
-  background: #f0f0f0;
-  border-radius: 3px;
-}
-
-.products-section::-webkit-scrollbar-thumb,
-.products-grid-wrapper::-webkit-scrollbar-thumb,
-.cart-items-wrapper::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
-  border-radius: 3px;
-}
-
-.products-section::-webkit-scrollbar-thumb:hover,
-.products-grid-wrapper::-webkit-scrollbar-thumb:hover,
-.cart-items-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #b0b0b0;
 }
 </style>
