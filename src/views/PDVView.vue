@@ -34,7 +34,6 @@ const paymentMethods = [
 ]
 
 onMounted(async () => {
-  // ✅ CORRIGIDO: Pega corretamente da query
   tableId.value = route.query.mesaId || route.query.mesa
   tableNumber.value = route.query.mesaNumero
   
@@ -55,11 +54,9 @@ onMounted(async () => {
 
   console.log('🔧 Inicializando mesa no carrinho:', tableId.value)
   
-  // NÃO chame initializeTable novamente se o carrinho já existe!
   if (!cartStore.getCartByTable(tableId.value)) {
     await cartStore.initializeTable(tableId.value)
   } else {
-    // Apenas define a mesa atual
     cartStore.currentTableId = tableId.value
     console.log('📦 Carrinho existente carregado:', cartStore.cartItems.length, 'itens')
   }
@@ -155,31 +152,25 @@ const getCategoryIcon = (category) => {
   return 'package'
 }
 
-// ✅ CORRIGIDO - Volta para dashboard do garçom
 const goBack = () => {
-  // Se o carrinho já está persistido (comanda aberta), apenas volta
   if (cartStore.isCartPersisted) {
     console.log('📌 Comanda mantida - voltando para dashboard')
     router.push('/dashboard-garcom')
     return
   }
   
-  // Se não está persistido e tem itens, pergunta se quer persistir
   if (cartStore.cartItems.length > 0) {
     const userChoice = confirm('Deseja manter os itens no carrinho? Clique em "OK" para manter ou "Cancelar" para limpar.')
     
     if (userChoice) {
-      // Persiste o carrinho antes de sair
       cartStore.persistCart()
       console.log('✅ Carrinho persistido - comanda mantida')
     } else {
-      // Usuário escolheu limpar
       cartStore.clearCart()
       console.log('🧹 Carrinho limpo pelo usuário')
     }
   }
   
-  // Redireciona para o dashboard do garçom
   router.push('/dashboard-garcom')
 }
 
@@ -285,11 +276,9 @@ async function finalizeOrder() {
 
     alert('Pedido registrado com sucesso!')
     
-    // Remove o carrinho após finalização
     await cartStore.finalizeCartAfterPayment(tableId.value)
     await fetchProducts()
     
-    // Volta para o dashboard
     router.push('/dashboard-garcom')
   } catch (error) {
     console.error('Erro ao finalizar pedido:', error)
@@ -320,7 +309,6 @@ async function fetchTables() {
 
 <template>
   <div class="pdv-professional">
-    <!-- Header Profissional -->
     <div class="professional-header">
       <div class="header-container">
         <div class="header-left">
@@ -366,11 +354,8 @@ async function fetchTables() {
       </div>
     </div>
 
-    <!-- Conteúdo Principal -->
     <div class="main-content">
-      <!-- Seção de Produtos -->
       <div class="products-section">
-        <!-- Busca -->
         <div class="search-wrapper">
           <Search :size="20" class="search-icon" />
           <input 
@@ -384,7 +369,6 @@ async function fetchTables() {
           </button>
         </div>
 
-        <!-- Categorias -->
         <div class="categories-tabs">
           <button 
             v-for="category in categories" 
@@ -400,7 +384,6 @@ async function fetchTables() {
           </button>
         </div>
 
-        <!-- Grid de Produtos -->
         <div class="products-grid-wrapper">
           <div v-if="paginatedProducts.length === 0" class="empty-products">
             <Package :size="64" />
@@ -461,7 +444,6 @@ async function fetchTables() {
           </div>
         </div>
 
-        <!-- Paginação -->
         <div v-if="totalPages > 1" class="pagination-pro">
           <button @click="previousPage" :disabled="currentPage === 1" class="pagination-btn-pro">
             <ChevronLeft :size="20" />
@@ -473,16 +455,13 @@ async function fetchTables() {
         </div>
       </div>
 
-      <!-- Seção do Carrinho -->
       <div class="cart-section-pro">
         <div class="cart-container-pro">
-          <!-- Header do Carrinho -->
           <div class="cart-header-pro">
             <h2 class="cart-title-pro">Carrinho de Compras</h2>
             <div class="cart-count-badge">{{ cartItemsCount }} {{ cartItemsCount === 1 ? 'item' : 'itens' }}</div>
           </div>
 
-          <!-- Itens do Carrinho -->
           <div class="cart-items-wrapper">
             <div v-if="cartStore.cartItems.length === 0" class="empty-cart-pro">
               <ShoppingCart :size="64" />
@@ -526,7 +505,6 @@ async function fetchTables() {
                 </div>
               </div>
 
-              <!-- Paginação do Carrinho -->
               <div v-if="totalCartPages > 1" class="cart-pagination">
                 <button @click="previousCartPage" :disabled="currentCartPage === 1" class="cart-page-btn">
                   <ChevronUp :size="16" />
@@ -539,7 +517,6 @@ async function fetchTables() {
             </div>
           </div>
 
-          <!-- Desconto -->
           <div class="discount-section-pro">
             <div class="section-title-pro">
               <Sparkles :size="16" />
@@ -561,7 +538,6 @@ async function fetchTables() {
             </div>
           </div>
 
-          <!-- Forma de Pagamento -->
           <div class="payment-section-pro">
             <div class="section-title-pro">Forma de Pagamento</div>
             <div class="payment-grid">
@@ -579,7 +555,6 @@ async function fetchTables() {
             </div>
           </div>
 
-          <!-- Resumo -->
           <div class="summary-section-pro">
             <div class="summary-row">
               <span>Subtotal</span>
@@ -594,7 +569,6 @@ async function fetchTables() {
               <span class="summary-value total-value">R$ {{ formatPrice(cartStore.total) }}</span>
             </div>
 
-            <!-- Botões de Ação -->
             <div class="action-buttons-pro">
               <button @click="clearCartConfirm" class="btn-clear-pro" :disabled="cartStore.cartItems.length === 0">
                 <Trash2 :size="18" />
@@ -1608,6 +1582,7 @@ async function fetchTables() {
   }
 }
 
+/* ✅ TABLET */
 @media (max-width: 1024px) {
   .main-content {
     flex-direction: column;
@@ -1615,6 +1590,23 @@ async function fetchTables() {
   
   .products-section {
     height: 60vh;
+    overflow-y: auto;
+  }
+  
+  .products-grid-wrapper {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .products-grid-pro {
+    overflow: visible;
+    height: auto;
+    grid-template-columns: 1fr;
+  }
+  
+  .product-card-pro {
+    height: auto;
+    min-height: 140px;
   }
   
   .cart-section-pro {
@@ -1638,7 +1630,12 @@ async function fetchTables() {
   }
 }
 
+/* ✅ MOBILE */
 @media (max-width: 768px) {
+  .professional-header {
+    height: auto;
+  }
+  
   .header-container {
     flex-direction: column;
     gap: 1rem;
@@ -1647,14 +1644,23 @@ async function fetchTables() {
     padding: 1rem;
   }
   
-  .professional-header {
-    height: auto;
-  }
-  
   .header-left,
   .header-right {
     width: 100%;
     justify-content: space-between;
+  }
+  
+  .header-left {
+    flex-wrap: wrap;
+  }
+  
+  .header-brand {
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .brand-meta {
+    flex-wrap: wrap;
   }
   
   .total-display {
@@ -1664,6 +1670,7 @@ async function fetchTables() {
   
   .products-section {
     padding: 0.75rem;
+    height: 55vh;
   }
   
   .categories-tabs {
@@ -1687,6 +1694,98 @@ async function fetchTables() {
   
   .products-grid-pro {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
+  
+  .product-card-pro {
+    flex-direction: column;
+    height: auto;
+    padding: 0.75rem;
+  }
+  
+  .product-image-wrapper {
+    width: 100%;
+    height: 120px;
+    margin-bottom: 0.5rem;
+  }
+  
+  .product-details {
+    gap: 0.5rem;
+  }
+  
+  .product-header {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .product-name-pro {
+    font-size: 1.1rem;
+  }
+  
+  .product-price-pro {
+    font-size: 1.25rem;
+  }
+  
+  .product-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  
+  .product-actions-pro {
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .quantity-controls-pro {
+    flex: 1;
+    justify-content: center;
+  }
+  
+  .add-btn-pro {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .cart-section-pro {
+    height: 45vh;
+  }
+  
+  .cart-items-wrapper {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ✅ SCROLL CUSTOMIZADO */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+.products-section::-webkit-scrollbar,
+.products-grid-wrapper::-webkit-scrollbar,
+.cart-items-wrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.products-section::-webkit-scrollbar-track,
+.products-grid-wrapper::-webkit-scrollbar-track,
+.cart-items-wrapper::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.products-section::-webkit-scrollbar-thumb,
+.products-grid-wrapper::-webkit-scrollbar-thumb,
+.cart-items-wrapper::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 3px;
+}
+
+.products-section::-webkit-scrollbar-thumb:hover,
+.products-grid-wrapper::-webkit-scrollbar-thumb:hover,
+.cart-items-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b0;
 }
 </style>
